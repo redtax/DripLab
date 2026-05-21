@@ -1,0 +1,2 @@
+-keep class com.driplab.app.data.repository.RecipeRepositoryImpl$** { *; }
+-dontwarn javax.annotation.**

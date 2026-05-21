@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.driplab.app.core.database.DripLabDatabase
 import com.driplab.app.core.database.dao.BrewNoteDao
 import com.driplab.app.core.database.dao.RecipeDao
+import com.driplab.app.data.PresetRecipeInitializer
 import com.driplab.app.data.repository.BrewNoteRepositoryImpl
 import com.driplab.app.data.repository.RecipeRepositoryImpl
 import com.driplab.app.domain.repository.BrewNoteRepository
@@ -24,12 +25,17 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): DripLabDatabase {
-        return Room.databaseBuilder(
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        presetInitializer: PresetRecipeInitializer
+    ): DripLabDatabase {
+        val db = Room.databaseBuilder(
             context,
             DripLabDatabase::class.java,
             "driplab.db"
         ).build()
+        presetInitializer.initialize(db)
+        return db
     }
 
     @Provides
