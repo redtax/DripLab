@@ -5,27 +5,34 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.driplab.app.core.database.entity.RecipeEntity
 import com.driplab.app.core.database.entity.RecipeStepEntity
 import kotlinx.coroutines.flow.Flow
 
+data class RecipeWithSteps(
+    val recipe: RecipeEntity,
+    val steps: List<RecipeStepEntity>
+)
+
 @Dao
 interface RecipeDao {
+    @Transaction
     @Query("SELECT * FROM recipes WHERE id = :id")
-    suspend fun getRecipeById(id: Long): RecipeEntity?
+    suspend fun getRecipeWithSteps(id: Long): RecipeWithSteps?
 
+    @Transaction
     @Query("SELECT * FROM recipes WHERE method = :method ORDER BY createdAt DESC")
-    suspend fun getRecipesByMethod(method: String): List<RecipeEntity>
+    suspend fun getRecipesWithStepsByMethod(method: String): List<RecipeWithSteps>
 
+    @Transaction
     @Query("SELECT * FROM recipes WHERE isDefault = 1 AND method = :method")
-    suspend fun getDefaultRecipes(method: String): List<RecipeEntity>
+    suspend fun getDefaultRecipesWithSteps(method: String): List<RecipeWithSteps>
 
+    @Transaction
     @Query("SELECT * FROM recipes ORDER BY createdAt DESC")
-    fun getAllRecipes(): Flow<List<RecipeEntity>>
-
-    @Query("SELECT * FROM recipe_steps WHERE recipeId = :recipeId ORDER BY sequence")
-    suspend fun getStepsByRecipeId(recipeId: Long): List<RecipeStepEntity>
+    fun getAllRecipesWithSteps(): Flow<List<RecipeWithSteps>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecipe(recipe: RecipeEntity): Long

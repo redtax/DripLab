@@ -22,17 +22,11 @@ class RecipeRepositoryImpl @Inject constructor(
 ) : RecipeRepository {
 
     override suspend fun getRecipesByMethod(method: BrewMethod): List<Recipe> {
-        val recipeEntities = recipeDao.getRecipesByMethod(method.name)
-        return recipeEntities.map { entity ->
-            val steps = recipeDao.getStepsByRecipeId(entity.id)
-            entity.toDomain(steps)
-        }
+        return recipeDao.getRecipesWithStepsByMethod(method.name).map { it.toDomain() }
     }
 
     override suspend fun getRecipeById(id: Long): Recipe? {
-        val entity = recipeDao.getRecipeById(id) ?: return null
-        val steps = recipeDao.getStepsByRecipeId(id)
-        return entity.toDomain(steps)
+        return recipeDao.getRecipeWithSteps(id)?.toDomain()
     }
 
     override suspend fun saveRecipe(recipe: Recipe): Long {
@@ -111,11 +105,7 @@ class RecipeRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getDefaultRecipes(method: BrewMethod): List<Recipe> {
-        val recipeEntities = recipeDao.getDefaultRecipes(method.name)
-        return recipeEntities.map { entity ->
-            val steps = recipeDao.getStepsByRecipeId(entity.id)
-            entity.toDomain(steps)
-        }
+        return recipeDao.getDefaultRecipesWithSteps(method.name).map { it.toDomain() }
     }
 
     override suspend fun getAllRecipes(): List<Recipe> {
@@ -123,20 +113,8 @@ class RecipeRepositoryImpl @Inject constructor(
     }
 
     fun getAllRecipesFlow(): Flow<List<Recipe>> {
-        return recipeDao.getAllRecipes().map { entityList ->
-            entityList.map { entity ->
-                Recipe(
-                    id = entity.id,
-                    name = entity.name,
-                    method = try { BrewMethod.valueOf(entity.method) } catch (_: Exception) { BrewMethod.POUR_OVER },
-                    coffeeWeight = entity.coffeeWeight,
-                    waterRatio = entity.waterRatio,
-                    temperature = entity.temperature,
-                    isDefault = entity.isDefault,
-                    createdAt = entity.createdAt,
-                    steps = emptyList()
-                )
-            }
+        return recipeDao.getAllRecipesWithSteps().map { list ->
+            list.map { it.toDomain() }
         }
     }
 
@@ -168,16 +146,16 @@ class RecipeRepositoryImpl @Inject constructor(
         val instruction: String? = null
     )
 
-    private fun RecipeEntity.toDomain(steps: List<RecipeStepEntity>): Recipe {
+    private fun com.driplab.app.core.database.dao.RecipeWithSteps.toDomain(): Recipe {
         return Recipe(
-            id = id,
-            name = name,
-            method = try { BrewMethod.valueOf(method) } catch (_: Exception) { BrewMethod.POUR_OVER },
-            coffeeWeight = coffeeWeight,
-            waterRatio = waterRatio,
-            temperature = temperature,
-            isDefault = isDefault,
-            createdAt = createdAt,
+            id = recipe.id,
+            name = recipe.name,
+            method = try { BrewMethod.valueOf(recipe.method) } catch (_: Exception) { BrewMethod.POUR_OVER },
+            coffeeWeight = recipe.coffeeWeight,
+            waterRatio = recipe.waterRatio,
+            temperature = recipe.temperature,
+            isDefault = recipe.isDefault,
+            createdAt = recipe.createdAt,
             steps = steps.map { step ->
                 RecipeStep(
                     id = step.id,
