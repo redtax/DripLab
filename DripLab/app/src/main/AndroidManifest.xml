@@ -11,7 +11,7 @@
     <application
         android:name=".DripLabApplication"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/ic_launcher"
         android:label="滴落间Lab"
         android:supportsRtl="true"
         android:theme="@style/Theme.DripLab">
