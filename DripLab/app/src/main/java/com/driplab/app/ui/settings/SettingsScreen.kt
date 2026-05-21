@@ -73,6 +73,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ThemeSection(
     selectedTheme: DripTheme,

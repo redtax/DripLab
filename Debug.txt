@@ -1,61 +1,56 @@
 Executing tasks: [:app:assembleDebug] in project C:\DripLab\DripLab
 
-> Task :app:createDebugVariantModel UP-TO-DATE
+> Task :app:createDebugVariantModel
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
 > Task :app:checkKotlinGradlePluginConfigurationErrors
-> Task :app:checkDebugAarMetadata UP-TO-DATE
-> Task :app:generateDebugResValues UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths UP-TO-DATE
-> Task :app:generateDebugResources UP-TO-DATE
-> Task :app:mergeDebugResources UP-TO-DATE
-> Task :app:packageDebugResources UP-TO-DATE
-> Task :app:parseDebugLocalResources UP-TO-DATE
-> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
-> Task :app:extractDeepLinksDebug UP-TO-DATE
-> Task :app:processDebugMainManifest UP-TO-DATE
-> Task :app:processDebugManifest UP-TO-DATE
-> Task :app:processDebugManifestForPackage UP-TO-DATE
-> Task :app:processDebugResources UP-TO-DATE
-> Task :app:javaPreCompileDebug UP-TO-DATE
-> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:generateDebugResValues
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:checkDebugAarMetadata
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:parseDebugLocalResources
+> Task :app:extractDeepLinksDebug
+> Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
-> Task :app:desugarDebugFileDependencies UP-TO-DATE
-> Task :app:checkDebugDuplicateClasses UP-TO-DATE
-> Task :app:mergeExtDexDebug UP-TO-DATE
-> Task :app:mergeLibDexDebug UP-TO-DATE
-> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:javaPreCompileDebug
+> Task :app:mergeDebugAssets
+> Task :app:compressDebugAssets
+> Task :app:desugarDebugFileDependencies
+> Task :app:mergeDebugJniLibFolders
 > Task :app:mergeDebugNativeLibs NO-SOURCE
 > Task :app:stripDebugDebugSymbols NO-SOURCE
-> Task :app:validateSigningDebug UP-TO-DATE
-> Task :app:writeDebugAppMetadata UP-TO-DATE
-> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:processDebugManifestForPackage
+> Task :app:checkDebugDuplicateClasses
+> Task :app:mergeLibDexDebug
+> Task :app:processDebugResources
+> Task :app:mergeExtDexDebug
+> Task :app:kspDebugKotlin
 
-> Task :app:kspDebugKotlin FAILED
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:15: Cannot figure out how to read this field from a cursor.
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:16: Cannot figure out how to read this field from a cursor.
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:23: The columns returned by the query does not have the fields [recipe,steps] in com.driplab.app.core.database.dao.RecipeWithSteps even though they are annotated as non-null or primitive. Columns returned by the query: [id,name,method,coffeeWeight,waterRatio,temperature,isDefault,createdAt]
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:23: Not sure how to convert a Cursor to this method's return type (com.driplab.app.core.database.dao.RecipeWithSteps).
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:27: The columns returned by the query does not have the fields [recipe,steps] in com.driplab.app.core.database.dao.RecipeWithSteps even though they are annotated as non-null or primitive. Columns returned by the query: [id,name,method,coffeeWeight,waterRatio,temperature,isDefault,createdAt]
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:27: Not sure how to convert a Cursor to this method's return type (com.driplab.app.core.database.dao.RecipeWithSteps).
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:31: The columns returned by the query does not have the fields [recipe,steps] in com.driplab.app.core.database.dao.RecipeWithSteps even though they are annotated as non-null or primitive. Columns returned by the query: [id,name,method,coffeeWeight,waterRatio,temperature,isDefault,createdAt]
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:31: Not sure how to convert a Cursor to this method's return type (com.driplab.app.core.database.dao.RecipeWithSteps).
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:35: The columns returned by the query does not have the fields [recipe,steps] in com.driplab.app.core.database.dao.RecipeWithSteps even though they are annotated as non-null or primitive. Columns returned by the query: [id,name,method,coffeeWeight,waterRatio,temperature,isDefault,createdAt]
-e: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:35: Not sure how to convert a Cursor to this method's return type (com.driplab.app.core.database.dao.RecipeWithSteps).
-w: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:23: The query returns some columns [id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt] which are not used by com.driplab.app.core.database.dao.RecipeWithSteps. You can use @ColumnInfo annotation on the fields to specify the mapping. You can annotate the method with @RewriteQueriesToDropUnusedColumns to direct Room to rewrite your query to avoid fetching unused columns. com.driplab.app.core.database.dao.RecipeWithSteps has some fields [recipe, steps] which are not returned by the query. If they are not supposed to be read from the result, you can mark them with @Ignore annotation. You can suppress this warning by annotating the method with @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH). Columns returned by the query: id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt.
-w: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:27: The query returns some columns [id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt] which are not used by com.driplab.app.core.database.dao.RecipeWithSteps. You can use @ColumnInfo annotation on the fields to specify the mapping. You can annotate the method with @RewriteQueriesToDropUnusedColumns to direct Room to rewrite your query to avoid fetching unused columns. com.driplab.app.core.database.dao.RecipeWithSteps has some fields [recipe, steps] which are not returned by the query. If they are not supposed to be read from the result, you can mark them with @Ignore annotation. You can suppress this warning by annotating the method with @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH). Columns returned by the query: id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt.
-w: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:31: The query returns some columns [id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt] which are not used by com.driplab.app.core.database.dao.RecipeWithSteps. You can use @ColumnInfo annotation on the fields to specify the mapping. You can annotate the method with @RewriteQueriesToDropUnusedColumns to direct Room to rewrite your query to avoid fetching unused columns. com.driplab.app.core.database.dao.RecipeWithSteps has some fields [recipe, steps] which are not returned by the query. If they are not supposed to be read from the result, you can mark them with @Ignore annotation. You can suppress this warning by annotating the method with @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH). Columns returned by the query: id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt.
-w: [ksp] C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/database/dao/RecipeDao.kt:35: The query returns some columns [id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt] which are not used by com.driplab.app.core.database.dao.RecipeWithSteps. You can use @ColumnInfo annotation on the fields to specify the mapping. You can annotate the method with @RewriteQueriesToDropUnusedColumns to direct Room to rewrite your query to avoid fetching unused columns. com.driplab.app.core.database.dao.RecipeWithSteps has some fields [recipe, steps] which are not returned by the query. If they are not supposed to be read from the result, you can mark them with @Ignore annotation. You can suppress this warning by annotating the method with @SuppressWarnings(RoomWarnings.CURSOR_MISMATCH). Columns returned by the query: id, name, method, coffeeWeight, waterRatio, temperature, isDefault, createdAt.
-e: Error occurred in KSP, check log for detail
+> Task :app:compileDebugKotlin FAILED
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/timer/BrewTimer.kt:115:17 Type mismatch: inferred type is Unit but Job? was expected
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/timer/BrewTimer.kt:115:95 Type mismatch: inferred type is Unit but Job? was expected
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/timer/BrewTimer.kt:116:32 Unresolved reference: launch
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/core/timer/BrewTimer.kt:118:40 Suspend function 'delay' should be called only from a coroutine or another suspend function
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/ui/components/CircularTimer.kt:54:39 @Composable invocations can only happen from the context of a @Composable function
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/ui/components/GearSlider.kt:64:53 Unresolved reference: roundToInt
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/ui/home/HomeScreen.kt:22:47 Unresolved reference: Kettle
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/ui/home/HomeScreen.kt:56:58 Unresolved reference: Kettle
+e: file:///C:/DripLab/DripLab/app/src/main/java/com/driplab/app/ui/settings/SettingsScreen.kt:96:13 The API of this layout is experimental and is likely to change in the future.
 
 FAILURE: Build failed with an exception.
 
 * What went wrong:
-Execution failed for task ':app:kspDebugKotlin'.
+Execution failed for task ':app:compileDebugKotlin'.
 > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
    > Compilation error. See log for more details
 
@@ -65,5 +60,5 @@ Execution failed for task ':app:kspDebugKotlin'.
 > Run with --scan to get full insights.
 > Get more help at https://help.gradle.org.
 
-BUILD FAILED in 3s
-27 actionable tasks: 2 executed, 25 up-to-date
+BUILD FAILED in 12s
+28 actionable tasks: 28 executed

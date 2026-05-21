@@ -44,6 +44,8 @@ fun CircularTimer(
 
     val formattedTime = formatSeconds(remainingSeconds)
 
+    val surfaceVariantColor = MaterialTheme.colorScheme.surfaceVariant
+
     Box(contentAlignment = Alignment.Center, modifier = modifier) {
         Canvas(modifier = Modifier.size(size)) {
             val strokeWidth = size.toPx() * 0.06f
@@ -51,7 +53,7 @@ fun CircularTimer(
             val topLeft = Offset(strokeWidth / 2, strokeWidth / 2)
 
             drawArc(
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = surfaceVariantColor,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,

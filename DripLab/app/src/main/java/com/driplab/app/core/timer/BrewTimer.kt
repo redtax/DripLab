@@ -3,9 +3,14 @@ package com.driplab.app.core.timer
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
 import com.driplab.app.domain.model.RecipeStep
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class BrewState(
     val currentPhase: BrewPhase = BrewPhase.IDLE,
@@ -36,7 +41,7 @@ class BrewTimer {
     private val _brewState = MutableStateFlow(BrewState())
     val brewState: StateFlow<BrewState> = _brewState.asStateFlow()
 
-    private var timer: kotlinx.coroutines.Job? = null
+    private var timer: Job? = null
 
     fun loadRecipe(recipe: Recipe) {
         val steps = recipe.steps.filter { it.phase != BrewPhase.IDLE && it.phase != BrewPhase.COMPLETE }
@@ -112,11 +117,11 @@ class BrewTimer {
 
     private fun startTimer() {
         timer?.cancel()
-        timer = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).let { scope ->
-            kotlinx.coroutines.launch(scope) {
-                while (_brewState.value.isRunning && !_brewState.value.isComplete) {
-                    kotlinx.coroutines.delay(1000L)
-                    val current = _brewState.value
+        val scope = CoroutineScope(Dispatchers.Default)
+        timer = scope.launch {
+            while (_brewState.value.isRunning && !_brewState.value.isComplete) {
+                delay(1000L)
+                val current = _brewState.value
                     val newRemaining = current.stepRemainingSeconds - 1
                     val newElapsed = current.elapsedSeconds + 1
 
@@ -150,4 +155,3 @@ class BrewTimer {
             }
         }
     }
-}

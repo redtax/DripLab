@@ -1,5 +1,6 @@
 package com.driplab.app.ui.components
 
+import kotlin.math.roundToInt
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas

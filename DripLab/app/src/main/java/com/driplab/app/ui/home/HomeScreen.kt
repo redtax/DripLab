@@ -19,8 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.CoffeeMaker
-import androidx.compose.material.icons.filled.Kettle
 import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,7 +53,7 @@ private val methodCards = listOf(
     MethodCard(BrewMethod.POUR_OVER, true, Icons.Default.WaterDrop),
     MethodCard(BrewMethod.FRENCH_PRESS, false, Icons.Default.CoffeeMaker),
     MethodCard(BrewMethod.AERO_PRESS, false, Icons.Default.Coffee),
-    MethodCard(BrewMethod.MOKA_POT, false, Icons.Default.Kettle),
+    MethodCard(BrewMethod.MOKA_POT, false, Icons.Default.Star),
     MethodCard(BrewMethod.COLD_BREW, false, Icons.Default.AcUnit),
     MethodCard(BrewMethod.SIPHON, false, Icons.Default.Science)
 )
