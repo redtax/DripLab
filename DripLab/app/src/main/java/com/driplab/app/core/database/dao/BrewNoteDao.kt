@@ -21,6 +21,9 @@ interface BrewNoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: BrewNoteEntity): Long
 
+    @androidx.room.Update
+    suspend fun updateNote(note: BrewNoteEntity)
+
     @Query("DELETE FROM brew_notes WHERE id = :id")
     suspend fun deleteNoteById(id: Long)
 }

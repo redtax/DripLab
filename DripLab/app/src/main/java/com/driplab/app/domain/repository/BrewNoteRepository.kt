@@ -7,6 +7,7 @@ interface BrewNoteRepository {
     suspend fun getNotesByMethod(method: BrewMethod?): List<BrewNote>
     suspend fun getNoteById(id: Long): BrewNote?
     suspend fun saveNote(note: BrewNote): Long
+    suspend fun updateNote(note: BrewNote)
     suspend fun deleteNote(id: Long)
     suspend fun getAllNotes(): List<BrewNote>
 }

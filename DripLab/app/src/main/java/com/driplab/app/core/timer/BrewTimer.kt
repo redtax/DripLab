@@ -46,8 +46,12 @@ class BrewTimer {
 
     private var phaseTimer: Job? = null
     private var elapsedTimer: Job? = null
+    private var elapsedRunning = false
+
     var onPhaseChanged: ((BrewPhase, Int, String) -> Unit)? = null
     var onPhaseCountdownEnd: ((BrewPhase) -> Unit)? = null
+    var onTick: ((Int) -> Unit)? = null
+    var onPhaseComplete: (() -> Unit)? = null
 
     fun loadRecipe(recipe: Recipe) {
         val steps = recipe.steps.filter { it.phase != BrewPhase.IDLE && it.phase != BrewPhase.COMPLETE }
@@ -70,7 +74,9 @@ class BrewTimer {
         }
 
         _brewState.value = _brewState.value.copy(isRunning = true, isPaused = false)
-        startElapsedTimer()
+        if (!elapsedRunning) {
+            startElapsedTimer()
+        }
         startPhaseTimer()
     }
 
@@ -88,6 +94,7 @@ class BrewTimer {
     fun stop() {
         phaseTimer?.cancel()
         elapsedTimer?.cancel()
+        elapsedRunning = false
         _brewState.value = BrewState()
     }
 
@@ -112,7 +119,9 @@ class BrewTimer {
                 stepRemainingSeconds = 0
             )
             elapsedTimer?.cancel()
+            elapsedRunning = false
             phaseTimer?.cancel()
+            onPhaseComplete?.invoke()
             return
         }
 
@@ -134,14 +143,14 @@ class BrewTimer {
 
     private fun startElapsedTimer() {
         elapsedTimer?.cancel()
+        elapsedRunning = true
         elapsedTimer = scope.launch {
-            while (_brewState.value.isRunning && !_brewState.value.isComplete) {
+            while (elapsedRunning) {
                 delay(1000L)
-                if (_brewState.value.isRunning && !_brewState.value.isComplete) {
-                    _brewState.value = _brewState.value.copy(
-                        elapsedSeconds = _brewState.value.elapsedSeconds + 1
-                    )
-                }
+                if (!elapsedRunning) break
+                _brewState.value = _brewState.value.copy(
+                    elapsedSeconds = _brewState.value.elapsedSeconds + 1
+                )
             }
         }
     }
@@ -159,14 +168,16 @@ class BrewTimer {
                 val newRemaining = current.stepRemainingSeconds - 1
 
                 if (newRemaining <= 0) {
-                    onPhaseCountdownEnd?.invoke(current.currentPhase)
+                    onPhaseComplete?.invoke()
                     advanceToNextStep()
                     if (_brewState.value.isComplete) {
                         _brewState.value = _brewState.value.copy(isRunning = false)
+                        elapsedRunning = false
                         elapsedTimer?.cancel()
                     }
                 } else {
                     _brewState.value = current.copy(stepRemainingSeconds = newRemaining)
+                    onTick?.invoke(newRemaining)
                 }
             }
         }

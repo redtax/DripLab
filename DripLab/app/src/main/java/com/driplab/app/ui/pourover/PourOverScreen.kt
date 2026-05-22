@@ -2,7 +2,6 @@ package com.driplab.app.ui.pourover
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -10,8 +9,10 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -50,11 +51,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -64,11 +67,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.driplab.app.R
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
-import com.driplab.app.ui.components.CircularTimer
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,7 +109,7 @@ fun PourOverScreen(viewModel: PourOverViewModel = hiltViewModel()) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            BrewingTimerSection(state, viewModel)
+            BrewingTimerSection(state)
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -244,8 +245,7 @@ private fun BrewControlSection(
 
 @Composable
 private fun BrewingTimerSection(
-    state: PourOverUiState,
-    viewModel: PourOverViewModel
+    state: PourOverUiState
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -257,11 +257,25 @@ private fun BrewingTimerSection(
             modifier = Modifier.fillMaxWidth().padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CircularTimer(
-                progress = state.brewState.stepProgress,
-                remainingSeconds = state.brewState.stepRemainingSeconds,
-                currentPhase = state.brewState.currentPhase,
-                size = 240.dp
+            Text(
+                text = "计时区",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = formatElapsedTime(state.brewState.elapsedSeconds),
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+
+            Text(
+                text = "总用时",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -275,12 +289,13 @@ private fun BrewingTimerSection(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "本段注水量: ${state.brewState.currentStepTargetWater}ml  |  需注水到: ${state.brewState.targetWater}ml",
+                    text = "本段倒计时: ${formatPhaseTime(state.brewState.stepRemainingSeconds)}",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "总用时: ${formatSeconds(state.brewState.elapsedSeconds)}",
+                    text = "本段注水量: ${state.brewState.currentStepTargetWater}ml  |  需注水到: ${state.brewState.targetWater}ml",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -304,13 +319,13 @@ private fun BrewingTimerSection(
             if (state.brewState.currentPhase == BrewPhase.COMPLETE) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "冲煮完成！总用时: ${formatSeconds(state.brewState.elapsedSeconds)}",
+                    text = "冲煮完成！总用时: ${formatElapsedTime(state.brewState.elapsedSeconds)}",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "享受你的咖啡吧",
+                    text = "笔记已自动保存",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -351,52 +366,60 @@ private fun CoffeeAndWaterSection(
     viewModel: PourOverViewModel
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Card(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
         ) {
-            Box(
-                modifier = Modifier.fillMaxWidth().padding(12.dp),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "${String.format("%.1f", state.coffeeWeight)}g",
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "咖啡粉",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Box(
+                    modifier = Modifier.weight(3f).fillMaxHeight().padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${String.format("%.1f", state.coffeeWeight)}g",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "咖啡粉",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
+
                 GearScrollSelector(
                     value = state.gearValue,
-                    displayValue = state.coffeeWeight,
                     onValueChange = { viewModel.updateGearValue(it) },
-                    onValueCommit = { viewModel.setCoffeeWeightFromGear(it) },
-                    onTick = { viewModel.setCoffeeWeightFromGear(it) },
-                    modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)
+                    onValueChangeEnd = { value ->
+                        viewModel.lockGearValue(value)
+                        viewModel.setCoffeeWeightFromGear(value)
+                    },
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
         }
 
         Card(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = "${state.waterAmount.toInt()}ml",
@@ -429,32 +452,37 @@ private fun CoffeeAndWaterSection(
 @Composable
 private fun GearScrollSelector(
     value: Float,
-    displayValue: Float,
     onValueChange: (Float) -> Unit,
-    onValueCommit: (Float) -> Unit,
-    onTick: (Float) -> Unit,
+    onValueChangeEnd: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val animatedRotation by animateFloatAsState(
-        targetValue = value * 36f,
-        animationSpec = tween(durationMillis = 100)
+        targetValue = value * 15f,
+        animationSpec = tween(durationMillis = 80)
     )
 
     val context = LocalContext.current
     val gearDrawableId = context.resources.getIdentifier("gear", "drawable", context.packageName)
+    val currentValue by rememberUpdatedState(value)
 
     Box(
         modifier = modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             .pointerInput(Unit) {
-                detectVerticalDragGestures { _, dragAmount ->
-                    val delta = -(dragAmount * 0.02f)
-                    val newValue = (value + delta).coerceIn(5f, 40f)
-                    onValueChange(newValue)
-                    if ((newValue * 10).toInt() != (value * 10).toInt()) {
-                        onTick(newValue)
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        onValueChangeEnd(currentValue)
+                    }
+                ) { _, dragAmount ->
+                    val delta = -(dragAmount * 0.03f)
+                    val newValue = currentValue + delta
+                    if (newValue < 5f) {
+                        onValueChange(150f)
+                    } else if (newValue > 150f) {
+                        onValueChange(5f)
+                    } else {
+                        onValueChange(newValue)
                     }
                 }
             },
@@ -464,7 +492,10 @@ private fun GearScrollSelector(
             androidx.compose.foundation.Image(
                 painter = painterResource(id = gearDrawableId),
                 contentDescription = "调整咖啡粉克数",
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(4.dp)
+                    .graphicsLayer(rotationZ = animatedRotation),
                 contentScale = ContentScale.Fit
             )
         } else {
@@ -633,18 +664,9 @@ private fun RecipeSelectorSection(
                     TagChip("${recipe.temperature}°C")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                recipe.steps.forEachIndexed { index, step ->
-                    if (index < 4) {
-                        Text(
-                            text = "${step.sequence}. ${step.instruction} (${step.duration}s, ${step.targetWater}ml)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                if (recipe.steps.size > 4) {
+                recipe.steps.forEach { step ->
                     Text(
-                        text = "...共${recipe.steps.size}步",
+                        text = "${step.sequence}. ${step.instruction} (${step.duration}s, ${step.targetWater}ml)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -713,7 +735,13 @@ private fun phaseDisplayName(phase: BrewPhase): String = when (phase) {
     BrewPhase.COMPLETE -> "完成"
 }
 
-private fun formatSeconds(totalSeconds: Int): String {
+private fun formatElapsedTime(totalSeconds: Int): String {
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%02d:%02d".format(minutes, seconds)
+}
+
+private fun formatPhaseTime(totalSeconds: Int): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%d分%02d秒".format(minutes, seconds)

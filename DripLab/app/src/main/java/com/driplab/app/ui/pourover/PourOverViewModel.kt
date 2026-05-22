@@ -11,9 +11,11 @@ import com.driplab.app.core.calculator.BrewCalculator.RatioPreset
 import com.driplab.app.core.theme.ThemeManager
 import com.driplab.app.core.timer.BrewState
 import com.driplab.app.core.timer.BrewTimer
-import com.driplab.app.data.repository.RecipeRepositoryImpl
 import com.driplab.app.data.BrewSessionManager
+import com.driplab.app.data.repository.BrewNoteRepositoryImpl
+import com.driplab.app.data.repository.RecipeRepositoryImpl
 import com.driplab.app.domain.model.BrewMethod
+import com.driplab.app.domain.model.BrewNote
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
 import com.driplab.app.domain.model.RecipeStep
@@ -47,11 +49,15 @@ data class PourOverUiState(
     val pendingRecipe: Recipe? = null,
     val gearValue: Float = 15f,
     val currentMethod: BrewMethod = BrewMethod.POUR_OVER,
+    val brewStartTime: Long = 0,
+    val brewEndTime: Long = 0,
+    val noteAutoSaved: Boolean = false
 )
 
 @HiltViewModel
 class PourOverViewModel @Inject constructor(
     private val recipeRepository: RecipeRepositoryImpl,
+    private val brewNoteRepository: BrewNoteRepositoryImpl,
     private val themeManager: ThemeManager,
     private val brewSessionManager: BrewSessionManager,
     @ApplicationContext private val appContext: Context
@@ -64,6 +70,9 @@ class PourOverViewModel @Inject constructor(
     private var tts: TextToSpeech? = null
     private var soundPool: SoundPool? = null
     private var clickSoundId: Int = 0
+    private var tickSoundId: Int = 0
+    private var tickAlertSoundId: Int = 0
+    private var dingSoundId: Int = 0
 
     init {
         loadRecipes()
@@ -109,16 +118,38 @@ class PourOverViewModel @Inject constructor(
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build()
         soundPool = SoundPool.Builder()
-            .setMaxStreams(1)
+            .setMaxStreams(4)
             .setAudioAttributes(attrs)
             .build()
-        clickSoundId = soundPool?.load(appContext, appContext.resources.getIdentifier("gear_click", "raw", appContext.packageName), 1) ?: 0
+        val res = appContext.resources
+        val pkg = appContext.packageName
+        clickSoundId = soundPool?.load(appContext, res.getIdentifier("gear_click", "raw", pkg), 1) ?: 0
+        tickSoundId = soundPool?.load(appContext, res.getIdentifier("tick", "raw", pkg), 1) ?: 0
+        tickAlertSoundId = soundPool?.load(appContext, res.getIdentifier("tick_alert", "raw", pkg), 1) ?: 0
+        dingSoundId = soundPool?.load(appContext, res.getIdentifier("ding", "raw", pkg), 1) ?: 0
     }
 
     fun playClickSound() {
         val state = themeManager.state.value
         if (state.alertMode.hasSound) {
             soundPool?.play(clickSoundId, 0.3f, 0.3f, 1, 0, 1f)
+        }
+    }
+
+    private fun playTickSound(remainingSeconds: Int) {
+        val alertState = themeManager.state.value
+        if (!alertState.alertMode.hasSound) return
+        if (remainingSeconds <= 10) {
+            soundPool?.play(tickAlertSoundId, 0.5f, 0.5f, 1, 0, 1f)
+        } else {
+            soundPool?.play(tickSoundId, 0.25f, 0.25f, 1, 0, 1f)
+        }
+    }
+
+    private fun playDingSound() {
+        val alertState = themeManager.state.value
+        if (alertState.alertMode.hasSound) {
+            soundPool?.play(dingSoundId, 0.6f, 0.6f, 1, 0, 1f)
         }
     }
 
@@ -146,6 +177,14 @@ class PourOverViewModel @Inject constructor(
                 speak(prompt)
             }
         }
+
+        brewTimer.onTick = { remaining ->
+            playTickSound(remaining)
+        }
+
+        brewTimer.onPhaseComplete = {
+            playDingSound()
+        }
     }
 
     private fun speak(text: String) {
@@ -167,14 +206,14 @@ class PourOverViewModel @Inject constructor(
 
     fun adjustCoffeeWeight(delta: Float) {
         val state = _uiState.value
-        val newWeight = (state.coffeeWeight + delta).coerceIn(5f, 40f)
+        val newWeight = (state.coffeeWeight + delta).coerceIn(5f, 150f)
         val rounded = (newWeight * 10).toInt() / 10f
         updateCoffeeWeight(rounded)
     }
 
     fun setCoffeeWeightFromGear(weight: Float) {
         val rounded = (weight * 10).toInt() / 10f
-        val clamped = rounded.coerceIn(5f, 40f)
+        val clamped = rounded.coerceIn(5f, 150f)
         if (clamped != _uiState.value.coffeeWeight) {
             updateCoffeeWeight(clamped)
             playClickSound()
@@ -183,6 +222,12 @@ class PourOverViewModel @Inject constructor(
 
     fun updateGearValue(value: Float) {
         _uiState.value = _uiState.value.copy(gearValue = value)
+    }
+
+    fun lockGearValue(value: Float) {
+        val rounded = (value * 10).toInt() / 10f
+        val clamped = rounded.coerceIn(5f, 150f)
+        _uiState.value = _uiState.value.copy(gearValue = clamped)
     }
 
     fun selectRatioPreset(index: Int) {
@@ -267,12 +312,17 @@ class PourOverViewModel @Inject constructor(
     fun startBrewing() {
         val state = _uiState.value
         val recipe = state.selectedRecipe ?: createDefaultRecipe(state)
+        val startTime = System.currentTimeMillis()
+        _uiState.value = _uiState.value.copy(brewStartTime = startTime, noteAutoSaved = false)
         brewTimer.loadRecipe(recipe)
         brewTimer.start()
 
         viewModelScope.launch {
             brewTimer.brewState.collect { brewState ->
                 _uiState.value = _uiState.value.copy(brewState = brewState)
+                if (brewState.isComplete && !_uiState.value.noteAutoSaved) {
+                    saveBrewNote()
+                }
             }
         }
     }
@@ -292,6 +342,32 @@ class PourOverViewModel @Inject constructor(
 
     fun advanceToNextStep() {
         brewTimer.skipToNextStep()
+    }
+
+    private fun saveBrewNote() {
+        val state = _uiState.value
+        val endTime = System.currentTimeMillis()
+        _uiState.value = _uiState.value.copy(brewEndTime = endTime, noteAutoSaved = true)
+
+        val recipe = state.selectedRecipe
+        val note = BrewNote(
+            recipeId = recipe?.id,
+            recipeName = recipe?.name ?: "自定义手冲",
+            method = state.currentMethod,
+            coffeeWeight = state.coffeeWeight,
+            waterRatio = state.ratioLabel,
+            temperature = state.temperature,
+            brewDate = System.currentTimeMillis(),
+            startTimeMillis = state.brewStartTime,
+            endTimeMillis = endTime,
+            totalTime = state.brewState.elapsedSeconds,
+            rating = 0,
+            review = ""
+        )
+
+        viewModelScope.launch {
+            brewNoteRepository.saveNote(note)
+        }
     }
 
     private fun getCurrentRatio(state: PourOverUiState): Float {

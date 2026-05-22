@@ -14,10 +14,9 @@ import javax.inject.Inject
 
 data class NoteUiState(
     val notes: List<BrewNote> = emptyList(),
-    val selectedMethod: BrewMethod? = null,
-    val isLoading: Boolean = true,
-    val showDetailDialog: Boolean = false,
-    val selectedNote: BrewNote? = null
+    val selectedMethod: BrewMethod = BrewMethod.POUR_OVER,
+    val showEditDialog: Boolean = false,
+    val editingNote: BrewNote? = null
 )
 
 @HiltViewModel
@@ -34,45 +33,37 @@ class NoteViewModel @Inject constructor(
 
     private fun loadNotes() {
         viewModelScope.launch {
-            brewNoteRepository.getAllNotesFlow().collect { notes ->
-                _uiState.value = _uiState.value.copy(
-                    notes = notes,
-                    isLoading = false
-                )
-            }
+            val method = _uiState.value.selectedMethod
+            val notes = brewNoteRepository.getNotesByMethod(method)
+            _uiState.value = _uiState.value.copy(notes = notes)
         }
     }
 
-    fun filterByMethod(method: BrewMethod?) {
+    fun selectMethod(method: BrewMethod) {
         _uiState.value = _uiState.value.copy(selectedMethod = method)
+        loadNotes()
     }
 
-    fun deleteNote(note: BrewNote) {
+    fun deleteNote(noteId: Long) {
         viewModelScope.launch {
-            brewNoteRepository.deleteNote(note.id)
+            brewNoteRepository.deleteNote(noteId)
+            loadNotes()
         }
     }
 
-    fun showDetail(note: BrewNote) {
-        _uiState.value = _uiState.value.copy(
-            showDetailDialog = true,
-            selectedNote = note
-        )
+    fun showEditDialog(note: BrewNote) {
+        _uiState.value = _uiState.value.copy(showEditDialog = true, editingNote = note)
     }
 
-    fun dismissDetail() {
-        _uiState.value = _uiState.value.copy(
-            showDetailDialog = false,
-            selectedNote = null
-        )
+    fun dismissEditDialog() {
+        _uiState.value = _uiState.value.copy(showEditDialog = false, editingNote = null)
     }
 
-    fun getFilteredNotes(): List<BrewNote> {
-        val state = _uiState.value
-        return if (state.selectedMethod != null) {
-            state.notes.filter { it.method == state.selectedMethod }
-        } else {
-            state.notes
+    fun saveEditedNote(note: BrewNote) {
+        viewModelScope.launch {
+            brewNoteRepository.updateNote(note)
+            _uiState.value = _uiState.value.copy(showEditDialog = false, editingNote = null)
+            loadNotes()
         }
     }
 }

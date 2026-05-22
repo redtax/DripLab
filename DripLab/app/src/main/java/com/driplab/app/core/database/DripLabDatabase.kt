@@ -14,7 +14,7 @@ import com.driplab.app.core.database.entity.RecipeStepEntity
         RecipeStepEntity::class,
         BrewNoteEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class DripLabDatabase : RoomDatabase() {

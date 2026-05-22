@@ -27,6 +27,10 @@ class BrewNoteRepositoryImpl @Inject constructor(
         return brewNoteDao.insertNote(note.toEntity())
     }
 
+    override suspend fun updateNote(note: BrewNote) {
+        brewNoteDao.updateNote(note.toEntity())
+    }
+
     override suspend fun deleteNote(id: Long) {
         brewNoteDao.deleteNoteById(id)
     }
@@ -44,9 +48,17 @@ class BrewNoteRepositoryImpl @Inject constructor(
     private fun BrewNoteEntity.toDomain() = BrewNote(
         id = id,
         recipeId = recipeId,
+        recipeName = recipeName,
         method = try { BrewMethod.valueOf(method) } catch (_: Exception) { BrewMethod.POUR_OVER },
+        coffeeWeight = coffeeWeight,
+        waterRatio = waterRatio,
+        temperature = temperature,
         brewDate = brewDate,
+        startTimeMillis = startTimeMillis,
+        endTimeMillis = endTimeMillis,
         totalTime = totalTime,
+        rating = rating,
+        review = review,
         acidity = acidity,
         sweetness = sweetness,
         bitterness = bitterness,
@@ -58,9 +70,17 @@ class BrewNoteRepositoryImpl @Inject constructor(
     private fun BrewNote.toEntity() = BrewNoteEntity(
         id = id,
         recipeId = recipeId,
+        recipeName = recipeName,
         method = method.name,
+        coffeeWeight = coffeeWeight,
+        waterRatio = waterRatio,
+        temperature = temperature,
         brewDate = brewDate,
+        startTimeMillis = startTimeMillis,
+        endTimeMillis = endTimeMillis,
         totalTime = totalTime,
+        rating = rating,
+        review = review,
         acidity = acidity,
         sweetness = sweetness,
         bitterness = bitterness,
