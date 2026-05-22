@@ -117,13 +117,15 @@ class BrewTimer {
         }
 
         val step = state.steps[nextIndex]
-        val targetWaterValue = state.totalWaterPoured + step.targetWater
+        val previousWater = state.steps.take(nextIndex).sumOf { it.targetWater }
+        val cumulativeTarget = previousWater + step.targetWater
         _brewState.value = state.copy(
             currentPhase = step.phase,
             currentStepIndex = nextIndex,
             stepDuration = step.duration,
             stepRemainingSeconds = step.duration,
-            targetWater = targetWaterValue,
+            totalWaterPoured = previousWater,
+            targetWater = cumulativeTarget,
             currentStepTargetWater = step.targetWater
         )
 

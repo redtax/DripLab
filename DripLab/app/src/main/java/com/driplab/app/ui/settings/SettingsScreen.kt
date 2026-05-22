@@ -1,5 +1,9 @@
 package com.driplab.app.ui.settings
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,11 +22,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,10 +42,14 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.driplab.app.core.theme.DripTheme
 import com.driplab.app.domain.model.AlertMode
@@ -64,9 +77,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            ThemeSection(state.selectedTheme, state.darkTheme, viewModel)
+            ThemeSection(state.theme, state.darkTheme, viewModel)
             Spacer(modifier = Modifier.height(16.dp))
-            AlertModeSection(state.alertMode, viewModel)
+            AlertModeSection(state.alertMode, state.bgMusicUri, viewModel)
             Spacer(modifier = Modifier.height(16.dp))
             AboutSection()
         }
@@ -143,8 +156,7 @@ private fun ThemeChip(
     }
 
     Card(
-        modifier = Modifier
-            .clickable(onClick = onClick),
+        modifier = Modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) {
@@ -158,9 +170,7 @@ private fun ThemeChip(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            androidx.compose.foundation.Canvas(modifier = Modifier
-                .height(20.dp)
-                .width(20.dp)) {
+            Canvas(modifier = Modifier.height(20.dp).width(20.dp)) {
                 drawCircle(color = chipColor)
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -178,6 +188,7 @@ private fun ThemeChip(
 @Composable
 private fun AlertModeSection(
     selectedMode: AlertMode,
+    bgMusicUri: String,
     viewModel: SettingsViewModel
 ) {
     Card(
@@ -195,6 +206,12 @@ private fun AlertModeSection(
 
             Spacer(modifier = Modifier.height(12.dp))
             AlertMode.entries.forEach { mode ->
+                val desc = buildString {
+                    append(if (mode.hasSound) "有声音" else "无声音")
+                    append(" · ")
+                    append(if (mode.hasVibration) "有震动" else "无震动")
+                    if (mode.hasBgMusic) append(" · 背景音")
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -206,7 +223,7 @@ private fun AlertModeSection(
                     Column {
                         Text(mode.displayName, style = MaterialTheme.typography.bodyLarge)
                         Text(
-                            "${if (mode.hasSound) "有声音" else "无声音"} · ${if (mode.hasVibration) "有震动" else "无震动"}",
+                            desc,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -215,6 +232,56 @@ private fun AlertModeSection(
                         Icon(Icons.Default.Check, contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary)
                     }
+                }
+            }
+
+            if (selectedMode.hasBgMusic) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.MusicNote, contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("背景音", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val bgOptions = listOf("咖啡厅环境音", "雨声白噪音", "轻柔爵士")
+                var selectedBg by remember { mutableStateOf(if (bgMusicUri.isEmpty()) -1 else -1) }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    bgOptions.forEachIndexed { index, label ->
+                        AssistChip(
+                            onClick = {
+                                selectedBg = index
+                                viewModel.setBgMusicUri("preset:$label")
+                            },
+                            label = { Text(label, fontSize = 12.sp) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = if (selectedBg == index) {
+                                    MaterialTheme.colorScheme.primaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                val filePicker = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.GetContent()
+                ) { uri: Uri? ->
+                    uri?.let { viewModel.setBgMusicUri(it.toString()) }
+                }
+                FilledTonalButton(onClick = { filePicker.launch("audio/*") }) {
+                    Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("上传自定义背景音")
+                }
+                if (bgMusicUri.startsWith("file") || bgMusicUri.startsWith("content")) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("已选择自定义背景音", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary)
                 }
             }
         }

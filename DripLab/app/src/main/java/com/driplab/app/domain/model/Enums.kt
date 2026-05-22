@@ -19,9 +19,9 @@ enum class BrewPhase {
     COMPLETE
 }
 
-enum class AlertMode(val displayName: String, val hasSound: Boolean, val hasVibration: Boolean) {
+enum class AlertMode(val displayName: String, val hasSound: Boolean, val hasVibration: Boolean, val hasBgMusic: Boolean = false) {
     SILENT("静音", false, false),
     GENTLE("轻柔", true, true),
     STANDARD("标准", true, true),
-    SOLO("独享", false, true)
+    SOLO("独享", true, true, true)
 }

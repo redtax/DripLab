@@ -131,7 +131,11 @@ fun RecipeScreen(viewModel: RecipeViewModel = hiltViewModel()) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredRecipes, key = { it.id }) { recipe ->
-                        RecipeCard(recipe = recipe, onDelete = { viewModel.deleteRecipe(recipe) })
+                        RecipeCard(
+                            recipe = recipe,
+                            onSelect = { viewModel.selectRecipeForBrewing(recipe) },
+                            onDelete = { viewModel.deleteRecipe(recipe) }
+                        )
                     }
                 }
             }
@@ -147,12 +151,63 @@ fun RecipeScreen(viewModel: RecipeViewModel = hiltViewModel()) {
             onDismiss = { viewModel.dismissImportDialog() }
         )
     }
+
+    if (state.showConfirmDialog && state.pendingRecipe != null) {
+        RecipeConfirmDialog(
+            recipe = state.pendingRecipe!!,
+            onConfirm = { viewModel.confirmRecipeSelection() },
+            onDismiss = { viewModel.dismissConfirmDialog() }
+        )
+    }
 }
 
 @Composable
-private fun RecipeCard(recipe: Recipe, onDelete: () -> Unit) {
+private fun RecipeConfirmDialog(
+    recipe: Recipe,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("选择冲煮配方") },
+        text = {
+            Column {
+                Text("是否将「${recipe.name}」设置为当前冲煮配方？")
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "冲煮方式: ${recipe.method.displayName} | 粉量: ${recipe.coffeeWeight}g | 水温: ${recipe.temperature}°C",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "粉水比: ${recipe.waterRatio} | 共${recipe.steps.size}段注水",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "确认后将提取至当前冲煮方式，不跳转至冲煮界面",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("确认") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
+}
+
+@Composable
+private fun RecipeCard(recipe: Recipe, onSelect: () -> Unit, onDelete: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

@@ -1,14 +1,18 @@
 package com.driplab.app.ui.pourover
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.SoundPool
 import android.speech.tts.TextToSpeech
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.driplab.app.core.calculator.BrewCalculator
 import com.driplab.app.core.calculator.BrewCalculator.RatioPreset
+import com.driplab.app.core.theme.ThemeManager
 import com.driplab.app.core.timer.BrewState
 import com.driplab.app.core.timer.BrewTimer
 import com.driplab.app.data.repository.RecipeRepositoryImpl
+import com.driplab.app.data.BrewSessionManager
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
@@ -32,16 +36,24 @@ data class PourOverUiState(
     val suggestedTemp: Int = 92,
     val temperature: Int = 92,
     val selectedRecipeId: Long = -1L,
+    val selectedRecipe: Recipe? = null,
+    val allPourOverRecipes: List<Recipe> = emptyList(),
     val presetRecipes: List<Recipe> = emptyList(),
     val selectedPresetIndex: Int = -1,
     val brewState: BrewState = BrewState(),
     val voicePrompt: String = "",
-    val showPresetSelector: Boolean = false,
+    val showRecipeDropdown: Boolean = false,
+    val showRecipeConfirmDialog: Boolean = false,
+    val pendingRecipe: Recipe? = null,
+    val gearValue: Float = 15f,
+    val currentMethod: BrewMethod = BrewMethod.POUR_OVER,
 )
 
 @HiltViewModel
 class PourOverViewModel @Inject constructor(
     private val recipeRepository: RecipeRepositoryImpl,
+    private val themeManager: ThemeManager,
+    private val brewSessionManager: BrewSessionManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -50,17 +62,36 @@ class PourOverViewModel @Inject constructor(
 
     val brewTimer = BrewTimer()
     private var tts: TextToSpeech? = null
+    private var soundPool: SoundPool? = null
+    private var clickSoundId: Int = 0
 
     init {
-        loadPresetRecipes()
+        loadRecipes()
+        observeSessionRecipes()
         setupBrewTimerCallbacks()
         initTts()
+        initSoundPool()
     }
 
-    private fun loadPresetRecipes() {
+    private fun observeSessionRecipes() {
+        viewModelScope.launch {
+            brewSessionManager.state.collect { session ->
+                session.activeRecipe?.let { recipe ->
+                    applyRecipe(recipe)
+                    brewSessionManager.clearActiveRecipe()
+                }
+            }
+        }
+    }
+
+    private fun loadRecipes() {
         viewModelScope.launch {
             val presets = recipeRepository.getDefaultRecipes(BrewMethod.POUR_OVER)
-            _uiState.value = _uiState.value.copy(presetRecipes = presets)
+            val all = recipeRepository.getRecipesByMethod(BrewMethod.POUR_OVER)
+            _uiState.value = _uiState.value.copy(
+                presetRecipes = presets,
+                allPourOverRecipes = all
+            )
         }
     }
 
@@ -69,6 +100,25 @@ class PourOverViewModel @Inject constructor(
             if (status == TextToSpeech.SUCCESS) {
                 tts?.language = Locale.CHINESE
             }
+        }
+    }
+
+    private fun initSoundPool() {
+        val attrs = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        soundPool = SoundPool.Builder()
+            .setMaxStreams(1)
+            .setAudioAttributes(attrs)
+            .build()
+        clickSoundId = soundPool?.load(appContext, appContext.resources.getIdentifier("gear_click", "raw", appContext.packageName), 1) ?: 0
+    }
+
+    fun playClickSound() {
+        val state = themeManager.state.value
+        if (state.alertMode.hasSound) {
+            soundPool?.play(clickSoundId, 0.3f, 0.3f, 1, 0, 1f)
         }
     }
 
@@ -108,6 +158,7 @@ class PourOverViewModel @Inject constructor(
         val calculation = BrewCalculator.calculate(weight, ratio)
         _uiState.value = state.copy(
             coffeeWeight = weight,
+            gearValue = weight,
             waterAmount = calculation.waterAmount,
             ratioLabel = calculation.ratioLabel,
             suggestedTemp = calculation.suggestedTemp
@@ -119,6 +170,19 @@ class PourOverViewModel @Inject constructor(
         val newWeight = (state.coffeeWeight + delta).coerceIn(5f, 40f)
         val rounded = (newWeight * 10).toInt() / 10f
         updateCoffeeWeight(rounded)
+    }
+
+    fun setCoffeeWeightFromGear(weight: Float) {
+        val rounded = (weight * 10).toInt() / 10f
+        val clamped = rounded.coerceIn(5f, 40f)
+        if (clamped != _uiState.value.coffeeWeight) {
+            updateCoffeeWeight(clamped)
+            playClickSound()
+        }
+    }
+
+    fun updateGearValue(value: Float) {
+        _uiState.value = _uiState.value.copy(gearValue = value)
     }
 
     fun selectRatioPreset(index: Int) {
@@ -152,35 +216,58 @@ class PourOverViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(temperature = temp)
     }
 
-    fun selectPresetRecipe(index: Int) {
-        val state = _uiState.value
-        if (index < 0 || index >= state.presetRecipes.size) return
-        val recipe = state.presetRecipes[index]
-        _uiState.value = state.copy(
-            selectedPresetIndex = index,
+    fun applyRecipe(recipe: Recipe) {
+        _uiState.value = _uiState.value.copy(
+            selectedRecipe = recipe,
             selectedRecipeId = recipe.id,
             temperature = recipe.temperature,
             coffeeWeight = recipe.coffeeWeight,
-            showPresetSelector = false
+            gearValue = recipe.coffeeWeight,
+            currentMethod = recipe.method,
+            showRecipeDropdown = false,
+            showRecipeConfirmDialog = false
         )
         updateCoffeeWeight(recipe.coffeeWeight)
+        selectRatioByLabel(recipe.waterRatio)
     }
 
-    fun togglePresetSelector() {
+    fun showRecipeConfirmDialog(recipe: Recipe) {
         _uiState.value = _uiState.value.copy(
-            showPresetSelector = !_uiState.value.showPresetSelector
+            showRecipeConfirmDialog = true,
+            pendingRecipe = recipe
         )
+    }
+
+    fun dismissRecipeConfirmDialog() {
+        _uiState.value = _uiState.value.copy(
+            showRecipeConfirmDialog = false,
+            pendingRecipe = null
+        )
+    }
+
+    fun confirmPendingRecipe() {
+        val recipe = _uiState.value.pendingRecipe ?: return
+        applyRecipe(recipe)
+    }
+
+    fun toggleRecipeDropdown() {
+        _uiState.value = _uiState.value.copy(
+            showRecipeDropdown = !_uiState.value.showRecipeDropdown
+        )
+    }
+
+    private fun selectRatioByLabel(label: String) {
+        val state = _uiState.value
+        val idx = state.ratioPresets.indexOfFirst { it.label == label }
+        if (idx >= 0) {
+            selectRatioPreset(idx)
+        }
     }
 
     fun startBrewing() {
         val state = _uiState.value
-        val recipe = when {
-            state.selectedRecipeId > 0 -> state.presetRecipes.firstOrNull { it.id == state.selectedRecipeId }
-            else -> null
-        }
-        val brewRecipe = recipe ?: createDefaultRecipe(state)
-
-        brewTimer.loadRecipe(brewRecipe)
+        val recipe = state.selectedRecipe ?: createDefaultRecipe(state)
+        brewTimer.loadRecipe(recipe)
         brewTimer.start()
 
         viewModelScope.launch {
@@ -230,5 +317,11 @@ class PourOverViewModel @Inject constructor(
                 RecipeStep(sequence = 4, phase = BrewPhase.WAIT, duration = 30, targetWater = (totalWater * 0.15f).toInt(), instruction = "最后注水并等待滴滤")
             )
         )
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        tts?.shutdown()
+        soundPool?.release()
     }
 }

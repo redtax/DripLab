@@ -1,35 +1,38 @@
 package com.driplab.app.ui.settings
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.driplab.app.core.theme.AppThemeState
 import com.driplab.app.core.theme.DripTheme
+import com.driplab.app.core.theme.ThemeManager
 import com.driplab.app.domain.model.AlertMode
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
-data class SettingsUiState(
-    val selectedTheme: DripTheme = DripTheme.CLASSIC,
-    val darkTheme: Boolean = false,
-    val alertMode: AlertMode = AlertMode.STANDARD
-)
-
 @HiltViewModel
-class SettingsViewModel @Inject constructor() : ViewModel() {
+class SettingsViewModel @Inject constructor(
+    private val themeManager: ThemeManager
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(SettingsUiState())
-    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+    val uiState: StateFlow<AppThemeState> = themeManager.state
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppThemeState())
 
     fun selectTheme(theme: DripTheme) {
-        _uiState.value = _uiState.value.copy(selectedTheme = theme)
+        themeManager.selectTheme(theme)
     }
 
     fun toggleDarkTheme() {
-        _uiState.value = _uiState.value.copy(darkTheme = !_uiState.value.darkTheme)
+        themeManager.toggleDarkTheme()
     }
 
     fun selectAlertMode(mode: AlertMode) {
-        _uiState.value = _uiState.value.copy(alertMode = mode)
+        themeManager.selectAlertMode(mode)
+    }
+
+    fun setBgMusicUri(uri: String) {
+        themeManager.setBgMusicUri(uri)
     }
 }

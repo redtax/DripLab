@@ -2,6 +2,7 @@ package com.driplab.app.ui.recipe
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.driplab.app.data.BrewSessionManager
 import com.driplab.app.data.repository.RecipeRepositoryImpl
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.Recipe
@@ -18,12 +19,15 @@ data class RecipeUiState(
     val isLoading: Boolean = true,
     val importText: String = "",
     val showImportDialog: Boolean = false,
-    val importResult: String? = null
+    val importResult: String? = null,
+    val showConfirmDialog: Boolean = false,
+    val pendingRecipe: Recipe? = null
 )
 
 @HiltViewModel
 class RecipeViewModel @Inject constructor(
-    private val recipeRepository: RecipeRepositoryImpl
+    private val recipeRepository: RecipeRepositoryImpl,
+    private val brewSessionManager: BrewSessionManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeUiState())
@@ -46,6 +50,29 @@ class RecipeViewModel @Inject constructor(
 
     fun filterByMethod(method: BrewMethod?) {
         _uiState.value = _uiState.value.copy(selectedMethod = method)
+    }
+
+    fun selectRecipeForBrewing(recipe: Recipe) {
+        _uiState.value = _uiState.value.copy(
+            showConfirmDialog = true,
+            pendingRecipe = recipe
+        )
+    }
+
+    fun confirmRecipeSelection() {
+        val recipe = _uiState.value.pendingRecipe ?: return
+        brewSessionManager.setActiveRecipe(recipe)
+        _uiState.value = _uiState.value.copy(
+            showConfirmDialog = false,
+            pendingRecipe = null
+        )
+    }
+
+    fun dismissConfirmDialog() {
+        _uiState.value = _uiState.value.copy(
+            showConfirmDialog = false,
+            pendingRecipe = null
+        )
     }
 
     fun deleteRecipe(recipe: Recipe) {
