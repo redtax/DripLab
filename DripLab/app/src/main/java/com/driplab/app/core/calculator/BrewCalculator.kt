@@ -17,10 +17,10 @@ object BrewCalculator {
     )
 
     val ratioPresets = listOf(
-        RatioPreset("1:15", 15f, "浅烘推荐"),
-        RatioPreset("1:16", 16f, "中烘推荐"),
-        RatioPreset("1:17", 17f, "深烘推荐"),
-        RatioPreset("自定义", 16f, "自行设定比例")
+        RatioPreset("1:14", 14f, "浓醇口感"),
+        RatioPreset("1:15", 15f, "均衡推荐"),
+        RatioPreset("1:16", 16f, "清爽风味"),
+        RatioPreset("自定义", 15f, "自行设定比例")
     )
 
     data class TempRange(val min: Int, val max: Int, val label: String)

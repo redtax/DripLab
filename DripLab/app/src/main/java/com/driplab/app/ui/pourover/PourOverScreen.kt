@@ -1,6 +1,8 @@
 package com.driplab.app.ui.pourover
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -42,7 +46,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -57,7 +63,15 @@ fun PourOverScreen(viewModel: PourOverViewModel = hiltViewModel()) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("手冲咖啡", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        text = "手冲咖啡",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                },
+                modifier = Modifier.height(40.dp),
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -70,26 +84,33 @@ fun PourOverScreen(viewModel: PourOverViewModel = hiltViewModel()) {
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             BrewingTimerSection(state, viewModel)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            ParameterSection(state, viewModel)
+            if (state.voicePrompt.isNotEmpty() && state.brewState.isRunning) {
+                VoicePromptBanner(state.voicePrompt)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            CoffeeAndWaterSection(state, viewModel)
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             RatioSection(state, viewModel)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             TemperatureSection(state, viewModel)
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             BrewControlSection(state, viewModel)
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -102,31 +123,69 @@ private fun BrewingTimerSection(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             CircularTimer(
                 progress = state.brewState.stepProgress,
                 remainingSeconds = state.brewState.stepRemainingSeconds,
                 currentPhase = state.brewState.currentPhase,
-                size = 200.dp
+                size = 240.dp
             )
 
-            if (state.brewState.currentPhase == BrewPhase.COMPLETE) {
-                Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (state.brewState.isRunning || state.brewState.isPaused) {
                 Text(
-                    text = "冲煮完成！享受你的咖啡",
+                    text = phaseDisplayName(state.brewState.currentPhase),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "本段注水: ${state.brewState.currentStepTargetWater}ml | 累计: ${state.brewState.targetWater}ml",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "总用时: ${formatSeconds(state.brewState.elapsedSeconds)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (state.brewState.currentPhase == BrewPhase.IDLE && !state.brewState.isComplete) {
+                Text(
+                    text = "准备冲煮",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "设定参数，点击开始",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (state.brewState.currentPhase == BrewPhase.COMPLETE) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "冲煮完成！总用时: ${formatSeconds(state.brewState.elapsedSeconds)}",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "享受你的咖啡吧",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -134,7 +193,36 @@ private fun BrewingTimerSection(
 }
 
 @Composable
-private fun ParameterSection(
+private fun VoicePromptBanner(prompt: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "\uD83D\uDD0A",
+                fontSize = 20.sp
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = prompt,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CoffeeAndWaterSection(
     state: PourOverUiState,
     viewModel: PourOverViewModel
 ) {
@@ -143,55 +231,114 @@ private fun ParameterSection(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("咖啡粉", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "${state.coffeeWeight.toInt()}g",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "咖啡粉",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${String.format("%.1f", state.coffeeWeight)}g",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                GearStepper(
+                    onIncrement = { viewModel.adjustCoffeeWeight(0.1f) },
+                    onDecrement = { viewModel.adjustCoffeeWeight(-0.1f) },
+                    modifier = Modifier.align(Alignment.CenterEnd)
                 )
             }
 
-            var sliderValue by remember(state.coffeeWeight) { mutableFloatStateOf(state.coffeeWeight) }
-            Slider(
-                value = sliderValue,
-                onValueChange = { sliderValue = it },
-                onValueChangeFinished = { viewModel.updateCoffeeWeight(sliderValue) },
-                valueRange = 5f..40f,
-                steps = 34,
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary
-                )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(80.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("注水量", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "${state.waterAmount.toInt()}ml",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            Box(modifier = Modifier.weight(1f)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${state.waterAmount.toInt()}ml",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "注水量",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = state.ratioLabel,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "粉水比",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
+        }
+    }
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("粉水比", style = MaterialTheme.typography.titleSmall)
-                Text(state.ratioLabel, style = MaterialTheme.typography.titleMedium)
-            }
+@Composable
+private fun GearStepper(
+    onIncrement: () -> Unit,
+    onDecrement: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .padding(end = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp)),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .clickable(onClick = onIncrement)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.KeyboardArrowUp,
+                contentDescription = "增加0.1g",
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Box(
+            modifier = Modifier
+                .width(28.dp)
+                .height(1.dp)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+        Box(
+            modifier = Modifier
+                .clickable(onClick = onDecrement)
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.KeyboardArrowDown,
+                contentDescription = "减少0.1g",
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -207,11 +354,7 @@ private fun RatioSection(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                "粉水比预设",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text("粉水比预设", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -229,11 +372,7 @@ private fun RatioSection(
                             }
                         )
                     ) {
-                        Text(
-                            preset.label,
-                            fontSize = 12.sp,
-                            maxLines = 1
-                        )
+                        Text(preset.label, fontSize = 12.sp, maxLines = 1)
                     }
                 }
             }
@@ -241,10 +380,7 @@ private fun RatioSection(
             if (state.selectedRatioPreset == state.ratioPresets.size - 1) {
                 Spacer(modifier = Modifier.height(12.dp))
                 var customRatio by remember(state.customRatio) { mutableFloatStateOf(state.customRatio) }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     Text("自定义比例: 1:", style = MaterialTheme.typography.bodyMedium)
                     Spacer(modifier = Modifier.width(8.dp))
                     Slider(
@@ -258,11 +394,7 @@ private fun RatioSection(
                             activeTrackColor = MaterialTheme.colorScheme.primary
                         )
                     )
-                    Text(
-                        "${customRatio.toInt()}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text("${customRatio.toInt()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -304,10 +436,7 @@ private fun TemperatureSection(
                     activeTrackColor = MaterialTheme.colorScheme.primary
                 )
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("60°C", style = MaterialTheme.typography.labelSmall)
                 Text("建议: ${state.suggestedTemp}°C", style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary)
@@ -326,16 +455,12 @@ private fun BrewControlSection(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (!state.brewState.isRunning && state.brewState.currentPhase != BrewPhase.COMPLETE) {
+        if (state.brewState.currentPhase == BrewPhase.IDLE && !state.brewState.isComplete) {
             Button(
                 onClick = { viewModel.startBrewing() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
@@ -352,9 +477,7 @@ private fun BrewControlSection(
                     onClick = { viewModel.pauseBrewing() },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
                 ) {
                     Icon(Icons.Default.Pause, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
@@ -362,25 +485,21 @@ private fun BrewControlSection(
                 }
 
                 Button(
-                    onClick = { viewModel.skipStep() },
+                    onClick = { viewModel.advanceToNextStep() },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                 ) {
                     Icon(Icons.Default.SkipNext, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("跳过")
+                    Text("下一步")
                 }
 
                 Button(
                     onClick = { viewModel.stopBrewing() },
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Icon(Icons.Default.Stop, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
@@ -389,34 +508,56 @@ private fun BrewControlSection(
             }
         }
 
-        if (!state.brewState.isRunning && state.brewState.currentPhase != BrewPhase.IDLE && state.brewState.currentPhase != BrewPhase.COMPLETE) {
+        if (state.brewState.isPaused) {
             Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = { viewModel.resumeBrewing() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("继续冲煮", style = MaterialTheme.typography.titleMedium)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(
+                    onClick = { viewModel.resumeBrewing() },
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("继续", style = MaterialTheme.typography.titleMedium)
+                }
+                Button(
+                    onClick = { viewModel.stopBrewing() },
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(Icons.Default.Stop, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("停止", style = MaterialTheme.typography.titleMedium)
+                }
             }
         }
 
         if (state.brewState.currentPhase == BrewPhase.COMPLETE) {
             Button(
                 onClick = { viewModel.stopBrewing() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Text("重新开始", style = MaterialTheme.typography.titleMedium)
             }
         }
     }
+}
+
+private fun phaseDisplayName(phase: BrewPhase): String = when (phase) {
+    BrewPhase.IDLE -> "准备开始"
+    BrewPhase.BLOOM -> "闷蒸"
+    BrewPhase.POUR -> "注水"
+    BrewPhase.WAIT -> "等待滴滤"
+    BrewPhase.STEEP -> "浸泡"
+    BrewPhase.PRESS -> "压滤"
+    BrewPhase.COMPLETE -> "完成"
+}
+
+private fun formatSeconds(totalSeconds: Int): String {
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    return "%d分%02d秒".format(minutes, seconds)
 }

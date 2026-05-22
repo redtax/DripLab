@@ -21,7 +21,9 @@ data class BrewState(
     val stepRemainingSeconds: Int = 0,
     val totalWaterPoured: Int = 0,
     val targetWater: Int = 0,
+    val currentStepTargetWater: Int = 0,
     val isRunning: Boolean = false,
+    val isPaused: Boolean = false,
     val isComplete: Boolean = false,
     val steps: List<RecipeStep> = emptyList()
 ) {
@@ -38,10 +40,14 @@ data class BrewState(
 
 class BrewTimer {
 
+    private val scope = CoroutineScope(Dispatchers.Default)
     private val _brewState = MutableStateFlow(BrewState())
     val brewState: StateFlow<BrewState> = _brewState.asStateFlow()
 
-    private var timer: Job? = null
+    private var phaseTimer: Job? = null
+    private var elapsedTimer: Job? = null
+    var onPhaseChanged: ((BrewPhase, Int, String) -> Unit)? = null
+    var onPhaseCountdownEnd: ((BrewPhase) -> Unit)? = null
 
     fun loadRecipe(recipe: Recipe) {
         val steps = recipe.steps.filter { it.phase != BrewPhase.IDLE && it.phase != BrewPhase.COMPLETE }
@@ -59,35 +65,37 @@ class BrewTimer {
         if (_brewState.value.isComplete) return
 
         val state = _brewState.value
-        if (state.currentPhase == BrewPhase.IDLE) {
+        if (state.currentPhase == BrewPhase.IDLE || state.isPaused) {
             advanceToNextStep()
         }
 
-        _brewState.value = _brewState.value.copy(isRunning = true)
-        startTimer()
+        _brewState.value = _brewState.value.copy(isRunning = true, isPaused = false)
+        startElapsedTimer()
+        startPhaseTimer()
     }
 
     fun pause() {
-        timer?.cancel()
-        _brewState.value = _brewState.value.copy(isRunning = false)
+        phaseTimer?.cancel()
+        _brewState.value = _brewState.value.copy(isPaused = true)
     }
 
     fun resume() {
         if (_brewState.value.isComplete) return
-        _brewState.value = _brewState.value.copy(isRunning = true)
-        startTimer()
+        _brewState.value = _brewState.value.copy(isPaused = false)
+        startPhaseTimer()
     }
 
     fun stop() {
-        timer?.cancel()
+        phaseTimer?.cancel()
+        elapsedTimer?.cancel()
         _brewState.value = BrewState()
     }
 
     fun skipToNextStep() {
-        timer?.cancel()
+        phaseTimer?.cancel()
         advanceToNextStep()
-        if (!_brewState.value.isComplete && _brewState.value.isRunning) {
-            startTimer()
+        if (!_brewState.value.isComplete) {
+            startPhaseTimer()
         }
     }
 
@@ -99,59 +107,66 @@ class BrewTimer {
             _brewState.value = state.copy(
                 currentPhase = BrewPhase.COMPLETE,
                 isRunning = false,
+                isPaused = false,
                 isComplete = true,
                 stepRemainingSeconds = 0
             )
+            elapsedTimer?.cancel()
+            phaseTimer?.cancel()
             return
         }
 
         val step = state.steps[nextIndex]
+        val targetWaterValue = state.totalWaterPoured + step.targetWater
         _brewState.value = state.copy(
             currentPhase = step.phase,
             currentStepIndex = nextIndex,
             stepDuration = step.duration,
             stepRemainingSeconds = step.duration,
-            targetWater = state.totalWaterPoured + step.targetWater
+            targetWater = targetWaterValue,
+            currentStepTargetWater = step.targetWater
         )
+
+        onPhaseChanged?.invoke(step.phase, step.targetWater, step.instruction)
     }
 
-    private fun startTimer() {
-        timer?.cancel()
-        val scope = CoroutineScope(Dispatchers.Default)
-        timer = scope.launch {
+    private fun startElapsedTimer() {
+        elapsedTimer?.cancel()
+        elapsedTimer = scope.launch {
             while (_brewState.value.isRunning && !_brewState.value.isComplete) {
                 delay(1000L)
-                val current = _brewState.value
-                    val newRemaining = current.stepRemainingSeconds - 1
-                    val newElapsed = current.elapsedSeconds + 1
-
-                    if (newRemaining <= 0) {
-                        if (current.currentStepIndex + 1 >= current.steps.size) {
-                            _brewState.value = current.copy(
-                                elapsedSeconds = newElapsed,
-                                stepRemainingSeconds = 0,
-                                currentPhase = BrewPhase.COMPLETE,
-                                isRunning = false,
-                                isComplete = true
-                            )
-                        } else {
-                            val nextStep = current.steps[current.currentStepIndex + 1]
-                            _brewState.value = current.copy(
-                                elapsedSeconds = newElapsed,
-                                currentPhase = nextStep.phase,
-                                currentStepIndex = current.currentStepIndex + 1,
-                                stepDuration = nextStep.duration,
-                                stepRemainingSeconds = nextStep.duration,
-                                targetWater = current.totalWaterPoured + nextStep.targetWater
-                            )
-                        }
-                    } else {
-                        _brewState.value = current.copy(
-                            elapsedSeconds = newElapsed,
-                            stepRemainingSeconds = newRemaining
-                        )
-                    }
+                if (_brewState.value.isRunning && !_brewState.value.isComplete) {
+                    _brewState.value = _brewState.value.copy(
+                        elapsedSeconds = _brewState.value.elapsedSeconds + 1
+                    )
                 }
             }
         }
     }
+
+    private fun startPhaseTimer() {
+        phaseTimer?.cancel()
+        if (_brewState.value.isPaused || _brewState.value.isComplete) return
+
+        phaseTimer = scope.launch {
+            while (_brewState.value.isRunning && !_brewState.value.isPaused && !_brewState.value.isComplete) {
+                delay(1000L)
+                val current = _brewState.value
+                if (current.isPaused || !current.isRunning || current.isComplete) continue
+
+                val newRemaining = current.stepRemainingSeconds - 1
+
+                if (newRemaining <= 0) {
+                    onPhaseCountdownEnd?.invoke(current.currentPhase)
+                    advanceToNextStep()
+                    if (_brewState.value.isComplete) {
+                        _brewState.value = _brewState.value.copy(isRunning = false)
+                        elapsedTimer?.cancel()
+                    }
+                } else {
+                    _brewState.value = current.copy(stepRemainingSeconds = newRemaining)
+                }
+            }
+        }
+    }
+}
