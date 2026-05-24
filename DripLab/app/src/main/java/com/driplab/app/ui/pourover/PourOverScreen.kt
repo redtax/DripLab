@@ -1,7 +1,6 @@
 package com.driplab.app.ui.pourover
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -56,13 +56,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -247,6 +247,9 @@ private fun BrewControlSection(
 private fun BrewingTimerSection(
     state: PourOverUiState
 ) {
+    val bs = state.brewState
+    val isActive = bs.isRunning || bs.isPaused
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -254,7 +257,7 @@ private fun BrewingTimerSection(
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -263,52 +266,81 @@ private fun BrewingTimerSection(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = formatElapsedTime(state.brewState.elapsedSeconds),
-                fontSize = 56.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularClock(
+                    value = formatElapsedTime(bs.elapsedSeconds),
+                    label = "总用时",
+                    isActive = isActive,
+                    accentColor = MaterialTheme.colorScheme.onSurface
+                )
+                CircularClock(
+                    value = if (isActive) formatElapsedTime(bs.stepRemainingSeconds) else "--:--",
+                    label = "本段倒计时",
+                    isActive = isActive,
+                    accentColor = MaterialTheme.colorScheme.primary
+                )
+            }
 
-            Text(
-                text = "总用时",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (state.brewState.isRunning || state.brewState.isPaused) {
+            if (isActive) {
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = phaseDisplayName(state.brewState.currentPhase),
+                    text = phaseDisplayName(bs.currentPhase),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "本段倒计时: ${formatPhaseTime(state.brewState.stepRemainingSeconds)}",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "本段注水量: ${state.brewState.currentStepTargetWater}ml  |  需注水到: ${state.brewState.targetWater}ml",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${bs.currentStepTargetWater}ml",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "本段注水量",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${bs.targetWater}ml",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "需注水到",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
-            if (state.brewState.currentPhase == BrewPhase.IDLE && !state.brewState.isComplete) {
+            if (bs.currentPhase == BrewPhase.IDLE && !bs.isComplete) {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "准备冲煮",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "设定参数，点击上方开始按钮",
                     style = MaterialTheme.typography.bodyMedium,
@@ -316,10 +348,10 @@ private fun BrewingTimerSection(
                 )
             }
 
-            if (state.brewState.currentPhase == BrewPhase.COMPLETE) {
+            if (bs.currentPhase == BrewPhase.COMPLETE) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "冲煮完成！总用时: ${formatElapsedTime(state.brewState.elapsedSeconds)}",
+                    text = "冲煮完成！总用时: ${formatElapsedTime(bs.elapsedSeconds)}",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.Bold
@@ -330,6 +362,51 @@ private fun BrewingTimerSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CircularClock(
+    value: String,
+    label: String,
+    isActive: Boolean,
+    accentColor: Color
+) {
+    val bgColor = if (isActive) {
+        accentColor.copy(alpha = 0.08f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+    }
+    val borderColor = if (isActive) {
+        accentColor.copy(alpha = 0.5f)
+    } else {
+        MaterialTheme.colorScheme.outlineVariant
+    }
+
+    Box(
+        modifier = Modifier
+            .size(130.dp)
+            .clip(CircleShape)
+            .background(bgColor)
+            .border(2.dp, borderColor, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = value,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isActive) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
@@ -398,7 +475,7 @@ private fun CoffeeAndWaterSection(
                     }
                 }
 
-                GearScrollSelector(
+                ScrollWheelSelector(
                     value = state.gearValue,
                     onValueChange = { viewModel.updateGearValue(it) },
                     onValueChangeEnd = { value ->
@@ -450,30 +527,39 @@ private fun CoffeeAndWaterSection(
 }
 
 @Composable
-private fun GearScrollSelector(
+private fun ScrollWheelSelector(
     value: Float,
     onValueChange: (Float) -> Unit,
     onValueChangeEnd: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val animatedRotation by animateFloatAsState(
-        targetValue = value * 15f,
-        animationSpec = tween(durationMillis = 80)
-    )
-
-    val context = LocalContext.current
-    val gearDrawableId = context.resources.getIdentifier("gear", "drawable", context.packageName)
+    val textMeasurer = rememberTextMeasurer()
     val currentValue by rememberUpdatedState(value)
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val textColorDim = MaterialTheme.colorScheme.onSurfaceVariant
+    val accentColor = MaterialTheme.colorScheme.primary
+    val tickColor = MaterialTheme.colorScheme.outlineVariant
+    val bgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+
+    val labelStyle = TextStyle(
+        fontSize = 9.sp,
+        color = textColorDim,
+        textAlign = TextAlign.Center
+    )
+    val valueStyle = TextStyle(
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = textColor,
+        textAlign = TextAlign.Center
+    )
 
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+            .background(bgColor)
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
-                    onDragEnd = {
-                        onValueChangeEnd(currentValue)
-                    }
+                    onDragEnd = { onValueChangeEnd(currentValue) }
                 ) { _, dragAmount ->
                     val delta = -(dragAmount * 0.03f)
                     val newValue = currentValue + delta
@@ -488,18 +574,86 @@ private fun GearScrollSelector(
             },
         contentAlignment = Alignment.Center
     ) {
-        if (gearDrawableId != 0) {
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = gearDrawableId),
-                contentDescription = "调整咖啡粉克数",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(4.dp)
-                    .graphicsLayer(rotationZ = animatedRotation),
-                contentScale = ContentScale.Fit
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val wheelWidth = size.width
+            val wheelHeight = size.height
+            val centerX = wheelWidth / 2f
+            val centerY = wheelHeight / 2f
+
+            val tickSpacingDp = 6.dp
+            val tickSpacing = tickSpacingDp.toPx()
+            val longTickWidth = 14.dp.toPx()
+            val shortTickWidth = 7.dp.toPx()
+
+            val valueRange = 150f
+            val totalTicks = (valueRange * 10).toInt()
+            val normalizedPos = (value - 5f) / valueRange
+            val wheelOffset = ((0.5f - normalizedPos) * totalTicks * tickSpacing)
+
+            val minGrams = 5
+            val maxGrams = 150
+
+            drawRect(
+                color = accentColor.copy(alpha = 0.12f),
+                topLeft = Offset(0f, centerY - tickSpacing + 1.dp.toPx()),
+                size = androidx.compose.ui.geometry.Size(wheelWidth, (tickSpacing * 2f) - 2.dp.toPx())
             )
-        } else {
-            Text("\u2699", fontSize = 28.sp)
+
+            drawLine(
+                color = accentColor.copy(alpha = 0.6f),
+                start = Offset(0f, centerY - tickSpacing),
+                end = Offset(wheelWidth, centerY - tickSpacing),
+                strokeWidth = 1.dp.toPx()
+            )
+            drawLine(
+                color = accentColor.copy(alpha = 0.6f),
+                start = Offset(0f, centerY + tickSpacing),
+                end = Offset(wheelWidth, centerY + tickSpacing),
+                strokeWidth = 1.dp.toPx()
+            )
+
+            for (gram in minGrams..maxGrams) {
+                val tickIndex = ((gram - 5f) * 10).toInt()
+                val tickY = centerY + wheelOffset + tickIndex * tickSpacing
+
+                if (tickY < -tickSpacing * 5 || tickY > wheelHeight + tickSpacing * 5) continue
+
+                val isMajorTick = true
+                val isInCenter = kotlin.math.abs(tickY - centerY) < tickSpacing
+
+                val textResult = textMeasurer.measure(
+                    text = "${gram}",
+                    style = if (isInCenter) valueStyle else labelStyle
+                )
+
+                val tickX = centerX - longTickWidth - 4.dp.toPx()
+                drawLine(
+                    color = if (isInCenter) accentColor else tickColor,
+                    start = Offset(tickX, tickY),
+                    end = Offset(tickX + longTickWidth, tickY),
+                    strokeWidth = if (isInCenter) 1.5.dp.toPx() else 1.dp.toPx()
+                )
+
+                drawText(
+                    textLayoutResult = textResult,
+                    topLeft = Offset(
+                        tickX + longTickWidth + 6.dp.toPx(),
+                        tickY - textResult.size.height / 2f
+                    )
+                )
+
+                for (sub in 1..9) {
+                    val subTickY = tickY - sub * tickSpacing / 10f
+                    if (subTickY < -tickSpacing || subTickY > wheelHeight + tickSpacing) continue
+                    val subIsInCenter = kotlin.math.abs(subTickY - centerY) < tickSpacing / 2f
+                    drawLine(
+                        color = if (subIsInCenter) accentColor.copy(alpha = 0.5f) else tickColor.copy(alpha = 0.4f),
+                        start = Offset(centerX, subTickY),
+                        end = Offset(centerX + shortTickWidth, subTickY),
+                        strokeWidth = 0.5.dp.toPx()
+                    )
+                }
+            }
         }
     }
 }
