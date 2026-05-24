@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import java.util.Locale
 import javax.inject.Inject
 
@@ -296,7 +297,11 @@ class PourOverViewModel @Inject constructor(
 
     fun startBrewing() {
         val state = _uiState.value
-        val recipe = state.selectedRecipe ?: createDefaultRecipe(state)
+        val recipe = if (state.selectedRecipe != null) {
+            buildProportionalRecipe(state.selectedRecipe!!, state.waterAmount)
+        } else {
+            createDefaultRecipe(state)
+        }
         val startTime = System.currentTimeMillis()
         _uiState.value = _uiState.value.copy(brewStartTime = startTime, noteAutoSaved = false)
         brewTimer.loadRecipe(recipe)
@@ -310,6 +315,18 @@ class PourOverViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun buildProportionalRecipe(original: Recipe, newTotalWater: Float): Recipe {
+        val originalTotal = original.steps.sumOf { it.targetWater }.toFloat()
+        if (originalTotal <= 0f) return original
+        return original.copy(
+            steps = original.steps.map { step ->
+                val proportion = step.targetWater / originalTotal
+                val newTarget = (proportion * newTotalWater).roundToInt()
+                step.copy(targetWater = newTarget)
+            }
+        )
     }
 
     fun pauseBrewing() {
