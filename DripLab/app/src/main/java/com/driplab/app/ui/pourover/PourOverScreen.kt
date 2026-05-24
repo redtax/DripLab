@@ -477,10 +477,13 @@ private fun CoffeeAndWaterSection(
 
                 ScrollWheelSelector(
                     value = state.gearValue,
-                    onValueChange = { viewModel.updateGearValue(it) },
+                    onValueChange = { newValue ->
+                        val rounded = (newValue * 10).toInt() / 10f
+                        viewModel.updateCoffeeWeight(rounded)
+                    },
                     onValueChangeEnd = { value ->
                         viewModel.lockGearValue(value)
-                        viewModel.setCoffeeWeightFromGear(value)
+                        viewModel.playClickSound()
                     },
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
@@ -562,14 +565,8 @@ private fun ScrollWheelSelector(
                     onDragEnd = { onValueChangeEnd(currentValue) }
                 ) { _, dragAmount ->
                     val delta = -(dragAmount * 0.03f)
-                    val newValue = currentValue + delta
-                    if (newValue < 5f) {
-                        onValueChange(150f)
-                    } else if (newValue > 150f) {
-                        onValueChange(5f)
-                    } else {
-                        onValueChange(newValue)
-                    }
+                    val newValue = (currentValue + delta).coerceIn(5f, 150f)
+                    onValueChange(newValue)
                 }
             },
         contentAlignment = Alignment.Center
