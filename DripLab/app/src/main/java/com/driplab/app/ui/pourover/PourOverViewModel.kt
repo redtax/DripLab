@@ -47,7 +47,6 @@ data class PourOverUiState(
     val showRecipeDropdown: Boolean = false,
     val showRecipeConfirmDialog: Boolean = false,
     val pendingRecipe: Recipe? = null,
-    val gearValue: Float = 15f,
     val currentMethod: BrewMethod = BrewMethod.POUR_OVER,
     val brewStartTime: Long = 0,
     val brewEndTime: Long = 0,
@@ -197,37 +196,24 @@ class PourOverViewModel @Inject constructor(
         val calculation = BrewCalculator.calculate(weight, ratio)
         _uiState.value = state.copy(
             coffeeWeight = weight,
-            gearValue = weight,
             waterAmount = calculation.waterAmount,
             ratioLabel = calculation.ratioLabel,
             suggestedTemp = calculation.suggestedTemp
         )
     }
 
-    fun adjustCoffeeWeight(delta: Float) {
-        val state = _uiState.value
-        val newWeight = (state.coffeeWeight + delta).coerceIn(5f, 150f)
+    fun adjustCoffeeUp() {
+        val newWeight = (_uiState.value.coffeeWeight + 0.1f).coerceIn(5f, 150f)
         val rounded = (newWeight * 10).toInt() / 10f
         updateCoffeeWeight(rounded)
+        playClickSound()
     }
 
-    fun setCoffeeWeightFromGear(weight: Float) {
-        val rounded = (weight * 10).toInt() / 10f
-        val clamped = rounded.coerceIn(5f, 150f)
-        if (clamped != _uiState.value.coffeeWeight) {
-            updateCoffeeWeight(clamped)
-            playClickSound()
-        }
-    }
-
-    fun updateGearValue(value: Float) {
-        _uiState.value = _uiState.value.copy(gearValue = value)
-    }
-
-    fun lockGearValue(value: Float) {
-        val rounded = (value * 10).toInt() / 10f
-        val clamped = rounded.coerceIn(5f, 150f)
-        _uiState.value = _uiState.value.copy(gearValue = clamped)
+    fun adjustCoffeeDown() {
+        val newWeight = (_uiState.value.coffeeWeight - 0.1f).coerceIn(5f, 150f)
+        val rounded = (newWeight * 10).toInt() / 10f
+        updateCoffeeWeight(rounded)
+        playClickSound()
     }
 
     fun selectRatioPreset(index: Int) {
@@ -267,7 +253,6 @@ class PourOverViewModel @Inject constructor(
             selectedRecipeId = recipe.id,
             temperature = recipe.temperature,
             coffeeWeight = recipe.coffeeWeight,
-            gearValue = recipe.coffeeWeight,
             currentMethod = recipe.method,
             showRecipeDropdown = false,
             showRecipeConfirmDialog = false

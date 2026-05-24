@@ -1,10 +1,8 @@
 package com.driplab.app.ui.pourover
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,6 +35,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -51,18 +50,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,7 +62,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -167,30 +158,29 @@ private fun BrewControlSection(
             }
         }
 
-        if (state.brewState.isRunning) {
+        if (state.brewState.isRunning || state.brewState.isPaused) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Button(
-                    onClick = { viewModel.pauseBrewing() },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                ) {
-                    Icon(Icons.Default.Pause, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("暂停")
-                }
-                Button(
-                    onClick = { viewModel.advanceToNextStep() },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                ) {
-                    Icon(Icons.Default.SkipNext, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("下一步")
+                if (state.brewState.isRunning && !state.brewState.isPaused) {
+                    Button(
+                        onClick = { viewModel.pauseBrewing() },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                    ) {
+                        Text("本段延时", style = MaterialTheme.typography.titleMedium)
+                    }
+                } else {
+                    Button(
+                        onClick = { viewModel.resumeBrewing() },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("下一段", style = MaterialTheme.typography.titleMedium)
+                    }
                 }
                 Button(
                     onClick = { viewModel.stopBrewing() },
@@ -198,34 +188,7 @@ private fun BrewControlSection(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Icon(Icons.Default.Stop, contentDescription = null)
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("停止")
-                }
-            }
-        }
-
-        if (state.brewState.isPaused) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
-                    onClick = { viewModel.resumeBrewing() },
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("继续", style = MaterialTheme.typography.titleMedium)
-                }
-                Button(
-                    onClick = { viewModel.stopBrewing() },
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.Stop, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("停止", style = MaterialTheme.typography.titleMedium)
+                    Text("结束操作", style = MaterialTheme.typography.titleMedium)
                 }
             }
         }
@@ -237,7 +200,7 @@ private fun BrewControlSection(
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Text("重新开始", style = MaterialTheme.typography.titleMedium)
+                Text("计时结束", style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -387,8 +350,7 @@ private fun CircularClock(
     Box(
         modifier = Modifier
             .size(130.dp)
-            .clip(CircleShape)
-            .background(bgColor)
+            .background(bgColor, CircleShape)
             .border(2.dp, borderColor, CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -444,57 +406,82 @@ private fun CoffeeAndWaterSection(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Card(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(3f).fillMaxHeight(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier.weight(3f).fillMaxHeight().padding(12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "${String.format("%.1f", state.coffeeWeight)}g",
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "咖啡粉",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${String.format("%.1f", state.coffeeWeight)}g",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "咖啡粉",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
+            }
+        }
 
-                ScrollWheelSelector(
-                    value = state.gearValue,
-                    onValueChange = { newValue ->
-                        val rounded = (newValue * 10).toInt() / 10f
-                        viewModel.updateCoffeeWeight(rounded)
-                    },
-                    onValueChangeEnd = { value ->
-                        viewModel.lockGearValue(value)
-                        viewModel.playClickSound()
-                    },
-                    modifier = Modifier.weight(1f).fillMaxHeight()
-                )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                IconButton(
+                    onClick = { viewModel.adjustCoffeeUp() },
+                    modifier = Modifier.size(48.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = "增加",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                IconButton(
+                    onClick = { viewModel.adjustCoffeeDown() },
+                    modifier = Modifier.size(48.dp),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "减少",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
             }
         }
 
         Card(
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(3f).fillMaxHeight(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+            border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().padding(12.dp),
@@ -524,132 +511,6 @@ private fun CoffeeAndWaterSection(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ScrollWheelSelector(
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    onValueChangeEnd: (Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val textMeasurer = rememberTextMeasurer()
-    val currentValue by rememberUpdatedState(value)
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val textColorDim = MaterialTheme.colorScheme.onSurfaceVariant
-    val accentColor = MaterialTheme.colorScheme.primary
-    val tickColor = MaterialTheme.colorScheme.outlineVariant
-    val bgColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-
-    val labelStyle = TextStyle(
-        fontSize = 9.sp,
-        color = textColorDim,
-        textAlign = TextAlign.Center
-    )
-    val valueStyle = TextStyle(
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Bold,
-        color = textColor,
-        textAlign = TextAlign.Center
-    )
-
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
-            .background(bgColor)
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = { onValueChangeEnd(currentValue) }
-                ) { _, dragAmount ->
-                    val delta = -(dragAmount * 0.03f)
-                    val newValue = (currentValue + delta).coerceIn(5f, 150f)
-                    onValueChange(newValue)
-                }
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val wheelWidth = size.width
-            val wheelHeight = size.height
-            val centerX = wheelWidth / 2f
-            val centerY = wheelHeight / 2f
-
-            val tickSpacingDp = 6.dp
-            val tickSpacing = tickSpacingDp.toPx()
-            val longTickWidth = 14.dp.toPx()
-            val shortTickWidth = 7.dp.toPx()
-
-            val valueRange = 150f
-            val totalTicks = (valueRange * 10).toInt()
-            val normalizedPos = (value - 5f) / valueRange
-            val wheelOffset = ((0.5f - normalizedPos) * totalTicks * tickSpacing)
-
-            val minGrams = 5
-            val maxGrams = 150
-
-            drawRect(
-                color = accentColor.copy(alpha = 0.12f),
-                topLeft = Offset(0f, centerY - tickSpacing + 1.dp.toPx()),
-                size = androidx.compose.ui.geometry.Size(wheelWidth, (tickSpacing * 2f) - 2.dp.toPx())
-            )
-
-            drawLine(
-                color = accentColor.copy(alpha = 0.6f),
-                start = Offset(0f, centerY - tickSpacing),
-                end = Offset(wheelWidth, centerY - tickSpacing),
-                strokeWidth = 1.dp.toPx()
-            )
-            drawLine(
-                color = accentColor.copy(alpha = 0.6f),
-                start = Offset(0f, centerY + tickSpacing),
-                end = Offset(wheelWidth, centerY + tickSpacing),
-                strokeWidth = 1.dp.toPx()
-            )
-
-            for (gram in minGrams..maxGrams) {
-                val tickIndex = ((gram - 5f) * 10).toInt()
-                val tickY = centerY + wheelOffset + tickIndex * tickSpacing
-
-                if (tickY < -tickSpacing * 5 || tickY > wheelHeight + tickSpacing * 5) continue
-
-                val isMajorTick = true
-                val isInCenter = kotlin.math.abs(tickY - centerY) < tickSpacing
-
-                val textResult = textMeasurer.measure(
-                    text = "${gram}",
-                    style = if (isInCenter) valueStyle else labelStyle
-                )
-
-                val tickX = centerX - longTickWidth - 4.dp.toPx()
-                drawLine(
-                    color = if (isInCenter) accentColor else tickColor,
-                    start = Offset(tickX, tickY),
-                    end = Offset(tickX + longTickWidth, tickY),
-                    strokeWidth = if (isInCenter) 1.5.dp.toPx() else 1.dp.toPx()
-                )
-
-                drawText(
-                    textLayoutResult = textResult,
-                    topLeft = Offset(
-                        tickX + longTickWidth + 6.dp.toPx(),
-                        tickY - textResult.size.height / 2f
-                    )
-                )
-
-                for (sub in 1..9) {
-                    val subTickY = tickY - sub * tickSpacing / 10f
-                    if (subTickY < -tickSpacing || subTickY > wheelHeight + tickSpacing) continue
-                    val subIsInCenter = kotlin.math.abs(subTickY - centerY) < tickSpacing / 2f
-                    drawLine(
-                        color = if (subIsInCenter) accentColor.copy(alpha = 0.5f) else tickColor.copy(alpha = 0.4f),
-                        start = Offset(centerX, subTickY),
-                        end = Offset(centerX + shortTickWidth, subTickY),
-                        strokeWidth = 0.5.dp.toPx()
-                    )
-                }
             }
         }
     }
@@ -890,10 +751,4 @@ private fun formatElapsedTime(totalSeconds: Int): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%02d:%02d".format(minutes, seconds)
-}
-
-private fun formatPhaseTime(totalSeconds: Int): String {
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return "%d分%02d秒".format(minutes, seconds)
 }
