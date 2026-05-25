@@ -262,6 +262,16 @@ class PourOverViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(temperature = temp)
     }
 
+    fun adjustTempUp() {
+        val newTemp = (_uiState.value.temperature + 1).coerceIn(60, 100)
+        _uiState.value = _uiState.value.copy(temperature = newTemp)
+    }
+
+    fun adjustTempDown() {
+        val newTemp = (_uiState.value.temperature - 1).coerceIn(60, 100)
+        _uiState.value = _uiState.value.copy(temperature = newTemp)
+    }
+
     fun applyRecipe(recipe: Recipe) {
         _uiState.value = _uiState.value.copy(
             selectedRecipe = recipe,

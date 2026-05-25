@@ -231,7 +231,7 @@ private fun BrewingTimerSection(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "计时区",
+                text = state.selectedRecipe?.name ?: "计时区",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -640,36 +640,74 @@ private fun TemperatureSection(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            var tempValue by remember(state.temperature) { mutableFloatStateOf(state.temperature.toFloat()) }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+        ) {
+            Box(
+                modifier = Modifier.weight(7f).fillMaxHeight().padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text("水温", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "${tempValue.toInt()}°C",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${state.temperature}°C",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "水温",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "建议: ${state.suggestedTemp}°C",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
-            Slider(
-                value = tempValue,
-                onValueChange = { tempValue = it },
-                onValueChangeFinished = { viewModel.updateTemperature(tempValue.toInt()) },
-                valueRange = 60f..100f,
-                colors = SliderDefaults.colors(
-                    thumbColor = MaterialTheme.colorScheme.primary,
-                    activeTrackColor = MaterialTheme.colorScheme.primary
-                )
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("60°C", style = MaterialTheme.typography.labelSmall)
-                Text("建议: ${state.suggestedTemp}°C", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary)
-                Text("100°C", style = MaterialTheme.typography.labelSmall)
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    IconButton(
+                        onClick = { viewModel.adjustTempUp() },
+                        modifier = Modifier.size(44.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowUp,
+                            contentDescription = "升温",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    IconButton(
+                        onClick = { viewModel.adjustTempDown() },
+                        modifier = Modifier.size(44.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = "降温",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
             }
         }
     }
