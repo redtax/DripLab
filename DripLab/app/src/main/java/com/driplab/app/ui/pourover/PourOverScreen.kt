@@ -684,7 +684,7 @@ private fun TemperatureSection(
                     IconButton(
                         onClick = { viewModel.adjustTempUp() },
                         modifier = Modifier.size(44.dp),
-                        colors = IconButtonDefaults.colors(
+                        colors = IconButtonDefaults.iconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         )
                     ) {
@@ -699,7 +699,7 @@ private fun TemperatureSection(
                     IconButton(
                         onClick = { viewModel.adjustTempDown() },
                         modifier = Modifier.size(44.dp),
-                        colors = IconButtonDefaults.colors(
+                        colors = IconButtonDefaults.iconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         )
                     ) {
