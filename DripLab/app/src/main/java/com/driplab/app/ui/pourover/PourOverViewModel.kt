@@ -217,6 +217,20 @@ class PourOverViewModel @Inject constructor(
         playClickSound()
     }
 
+    fun adjustCoffeeUpFast() {
+        val newWeight = (_uiState.value.coffeeWeight + 0.5f).coerceIn(5f, 150f)
+        val rounded = (newWeight * 10).toInt() / 10f
+        updateCoffeeWeight(rounded)
+        playClickSound()
+    }
+
+    fun adjustCoffeeDownFast() {
+        val newWeight = (_uiState.value.coffeeWeight - 0.5f).coerceIn(5f, 150f)
+        val rounded = (newWeight * 10).toInt() / 10f
+        updateCoffeeWeight(rounded)
+        playClickSound()
+    }
+
     fun selectRatioPreset(index: Int) {
         val state = _uiState.value
         if (index == state.ratioPresets.size - 1) {

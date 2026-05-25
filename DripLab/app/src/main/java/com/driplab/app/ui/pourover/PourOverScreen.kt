@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,22 +48,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.driplab.app.core.timer.BrewState
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -254,7 +260,7 @@ private fun BrewingTimerSection(
             if (isActive) {
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = phaseDisplayName(bs.currentPhase),
+                    text = stepDisplayName(bs),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -441,14 +447,51 @@ private fun CoffeeAndWaterSection(
                 .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
+            var isHeldUp by remember { mutableStateOf(false) }
+            var isHeldDown by remember { mutableStateOf(false) }
+
+            LaunchedEffect(isHeldUp) {
+                if (isHeldUp) {
+                    viewModel.adjustCoffeeUpFast()
+                    while (isHeldUp) {
+                        delay(120)
+                        if (isHeldUp) {
+                            viewModel.adjustCoffeeUpFast()
+                        }
+                    }
+                }
+            }
+
+            LaunchedEffect(isHeldDown) {
+                if (isHeldDown) {
+                    viewModel.adjustCoffeeDownFast()
+                    while (isHeldDown) {
+                        delay(120)
+                        if (isHeldDown) {
+                            viewModel.adjustCoffeeDownFast()
+                        }
+                    }
+                }
+            }
+
             Column(
                 modifier = Modifier.fillMaxWidth().fillMaxHeight(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 IconButton(
-                    onClick = { viewModel.adjustCoffeeUp() },
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { viewModel.adjustCoffeeUp() },
+                                onLongPress = { isHeldUp = true },
+                                onPress = {
+                                    isHeldUp = false
+                                    try { awaitRelease() } finally { isHeldUp = false }
+                                }
+                            )
+                        },
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                     )
@@ -462,8 +505,18 @@ private fun CoffeeAndWaterSection(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 IconButton(
-                    onClick = { viewModel.adjustCoffeeDown() },
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { viewModel.adjustCoffeeDown() },
+                                onLongPress = { isHeldDown = true },
+                                onPress = {
+                                    isHeldDown = false
+                                    try { awaitRelease() } finally { isHeldDown = false }
+                                }
+                            )
+                        },
                     colors = IconButtonDefaults.iconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                     )
@@ -593,7 +646,7 @@ private fun TemperatureSection(
             ) {
                 Text("水温", style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "${state.temperature}°C",
+                    "${tempValue.toInt()}°C",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -746,6 +799,21 @@ private fun phaseDisplayName(phase: BrewPhase): String = when (phase) {
     BrewPhase.STEEP -> "浸泡"
     BrewPhase.PRESS -> "压滤"
     BrewPhase.COMPLETE -> "完成"
+}
+
+private fun stepDisplayName(bs: BrewState): String {
+    return when (bs.currentPhase) {
+        BrewPhase.BLOOM -> "闷蒸"
+        BrewPhase.POUR -> {
+            val pourCount = bs.steps.take(bs.currentStepIndex + 1).count { it.phase == BrewPhase.POUR }
+            "第${pourCount}段注水"
+        }
+        BrewPhase.WAIT -> "等待滴滤"
+        BrewPhase.STEEP -> "浸泡"
+        BrewPhase.PRESS -> "压滤"
+        BrewPhase.IDLE -> "准备开始"
+        BrewPhase.COMPLETE -> "完成"
+    }
 }
 
 private fun formatElapsedTime(totalSeconds: Int): String {
