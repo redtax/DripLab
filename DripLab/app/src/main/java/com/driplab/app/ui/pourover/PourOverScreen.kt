@@ -480,6 +480,7 @@ private fun CoffeeAndWaterSection(
                 verticalArrangement = Arrangement.Center
             ) {
                 IconButton(
+                    onClick = {},
                     modifier = Modifier
                         .size(48.dp)
                         .pointerInput(Unit) {
@@ -505,6 +506,7 @@ private fun CoffeeAndWaterSection(
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 IconButton(
+                    onClick = {},
                     modifier = Modifier
                         .size(48.dp)
                         .pointerInput(Unit) {
@@ -639,6 +641,7 @@ private fun TemperatureSection(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            var tempValue by remember(state.temperature) { mutableFloatStateOf(state.temperature.toFloat()) }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -652,7 +655,6 @@ private fun TemperatureSection(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            var tempValue by remember(state.temperature) { mutableFloatStateOf(state.temperature.toFloat()) }
             Slider(
                 value = tempValue,
                 onValueChange = { tempValue = it },
