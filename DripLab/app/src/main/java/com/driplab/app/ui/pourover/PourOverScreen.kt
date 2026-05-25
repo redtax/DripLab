@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -120,15 +121,15 @@ fun PourOverScreen(viewModel: PourOverViewModel = hiltViewModel()) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            RecipeSelectorSection(state, viewModel)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             RatioSection(state, viewModel)
 
             Spacer(modifier = Modifier.height(12.dp))
 
             TemperatureSection(state, viewModel)
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            RecipeSelectorSection(state, viewModel)
 
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -479,10 +480,13 @@ private fun CoffeeAndWaterSection(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                IconButton(
-                    onClick = {},
+                Box(
                     modifier = Modifier
                         .size(48.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            CircleShape
+                        )
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = { viewModel.adjustCoffeeUp() },
@@ -493,9 +497,7 @@ private fun CoffeeAndWaterSection(
                                 }
                             )
                         },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                    )
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.KeyboardArrowUp,
@@ -505,10 +507,13 @@ private fun CoffeeAndWaterSection(
                     )
                 }
                 Spacer(modifier = Modifier.height(2.dp))
-                IconButton(
-                    onClick = {},
+                Box(
                     modifier = Modifier
                         .size(48.dp)
+                        .background(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                            CircleShape
+                        )
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onTap = { viewModel.adjustCoffeeDown() },
@@ -519,9 +524,7 @@ private fun CoffeeAndWaterSection(
                                 }
                             )
                         },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                    )
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.KeyboardArrowDown,
@@ -681,7 +684,7 @@ private fun TemperatureSection(
                     IconButton(
                         onClick = { viewModel.adjustTempUp() },
                         modifier = Modifier.size(44.dp),
-                        colors = IconButtonDefaults.iconButtonColors(
+                        colors = IconButtonDefaults.colors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         )
                     ) {
@@ -696,7 +699,7 @@ private fun TemperatureSection(
                     IconButton(
                         onClick = { viewModel.adjustTempDown() },
                         modifier = Modifier.size(44.dp),
-                        colors = IconButtonDefaults.iconButtonColors(
+                        colors = IconButtonDefaults.colors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                         )
                     ) {
@@ -719,13 +722,13 @@ private fun RecipeSelectorSection(
     viewModel: PourOverViewModel
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.wrapContentWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.wrapContentWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -764,7 +767,7 @@ private fun RecipeSelectorSection(
 
             state.selectedRecipe?.let { recipe ->
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.wrapContentWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TagChip("${recipe.coffeeWeight}g")
                     TagChip(recipe.waterRatio)
                     TagChip("${recipe.temperature}°C")

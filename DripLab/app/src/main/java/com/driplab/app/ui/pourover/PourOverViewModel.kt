@@ -75,7 +75,7 @@ class PourOverViewModel @Inject constructor(
     private var dingSoundId: Int = 0
 
     init {
-        loadRecipes()
+        loadRecipesAndAutoSelect()
         observeSessionRecipes()
         setupBrewTimerCallbacks()
         initTts()
@@ -93,7 +93,7 @@ class PourOverViewModel @Inject constructor(
         }
     }
 
-    private fun loadRecipes() {
+    private fun loadRecipesAndAutoSelect() {
         viewModelScope.launch {
             val presets = recipeRepository.getDefaultRecipes(BrewMethod.POUR_OVER)
             val all = recipeRepository.getRecipesByMethod(BrewMethod.POUR_OVER)
@@ -101,7 +101,29 @@ class PourOverViewModel @Inject constructor(
                 presetRecipes = presets,
                 allPourOverRecipes = all
             )
+            if (_uiState.value.selectedRecipe == null) {
+                autoSelectFallback(presets, all)
+            }
         }
+    }
+
+    private fun autoSelectFallback(presets: List<Recipe>, allRecipes: List<Recipe>) {
+        val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lastId = prefs.getLong(KEY_LAST_RECIPE_ID, -1L)
+        val fromPrefs = if (lastId > 0) {
+            allRecipes.find { it.id == lastId } ?: presets.find { it.id == lastId }
+        } else null
+        if (fromPrefs != null) {
+            applyRecipe(fromPrefs)
+        } else {
+            val default = presets.find { it.name == "三段式手冲" } ?: presets.firstOrNull()
+            default?.let { applyRecipe(it) }
+        }
+    }
+
+    private fun saveLastRecipeId(id: Long) {
+        appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putLong(KEY_LAST_RECIPE_ID, id).apply()
     }
 
     private fun initTts() {
@@ -284,6 +306,7 @@ class PourOverViewModel @Inject constructor(
         )
         updateCoffeeWeight(recipe.coffeeWeight)
         selectRatioByLabel(recipe.waterRatio)
+        saveLastRecipeId(recipe.id)
     }
 
     fun showRecipeConfirmDialog(recipe: Recipe) {
@@ -426,5 +449,10 @@ class PourOverViewModel @Inject constructor(
         super.onCleared()
         tts?.shutdown()
         soundPool?.release()
+    }
+
+    companion object {
+        private const val PREFS_NAME = "driplab_prefs"
+        private const val KEY_LAST_RECIPE_ID = "last_recipe_id"
     }
 }
