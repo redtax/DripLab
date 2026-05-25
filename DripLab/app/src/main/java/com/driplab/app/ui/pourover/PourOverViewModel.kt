@@ -311,8 +311,9 @@ class PourOverViewModel @Inject constructor(
 
     fun startBrewing() {
         val state = _uiState.value
-        val recipe = if (state.selectedRecipe != null) {
-            buildProportionalRecipe(state.selectedRecipe!!, state.waterAmount)
+        val selected = state.selectedRecipe
+        val recipe = if (selected != null) {
+            buildProportionalRecipe(selected, state.waterAmount)
         } else {
             createDefaultRecipe(state)
         }

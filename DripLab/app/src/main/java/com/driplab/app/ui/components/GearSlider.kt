@@ -1,8 +1,6 @@
 package com.driplab.app.ui.components
 
 import kotlin.math.roundToInt
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -29,21 +27,14 @@ fun GearSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     modifier: Modifier = Modifier,
     size: Dp = 200.dp,
-    steps: Int = 20,
-    label: String = ""
+    steps: Int = 20
 ) {
     var currentValue by remember { mutableFloatStateOf(value) }
-    val animatedValue by animateFloatAsState(
-        targetValue = currentValue,
-        animationSpec = tween(100),
-        label = "gear_anim"
-    )
 
     val normalized = (currentValue - valueRange.start) / (valueRange.endInclusive - valueRange.start)
     val sweepAngle = normalized * 300f
 
     val primaryColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = MaterialTheme.colorScheme.surface
     val surfaceVariant = MaterialTheme.colorScheme.surfaceVariant
 
     Box(contentAlignment = Alignment.Center, modifier = modifier) {
