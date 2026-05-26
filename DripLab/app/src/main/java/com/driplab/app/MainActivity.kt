@@ -83,7 +83,14 @@ fun DripLabApp() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) { HomeScreen(navController) }
-            composable(Screen.Recipe.route) { RecipeScreen() }
+            composable(Screen.Recipe.route) { RecipeScreen(navController) }
+            composable("recipe_edit/{recipeId}") { backStackEntry ->
+                val recipeId = backStackEntry.arguments?.getString("recipeId")?.toLongOrNull() ?: 0L
+                RecipeEditScreen(
+                    recipeId = recipeId,
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable(Screen.Brew.route) { PourOverScreen() }
             composable(Screen.Note.route) { NoteScreen() }
             composable(Screen.Settings.route) { SettingsScreen() }

@@ -1,5 +1,9 @@
 package com.driplab.app.ui.recipe
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.driplab.app.data.BrewSessionManager
@@ -7,6 +11,7 @@ import com.driplab.app.data.repository.RecipeRepositoryImpl
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.Recipe
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +32,8 @@ data class RecipeUiState(
 @HiltViewModel
 class RecipeViewModel @Inject constructor(
     private val recipeRepository: RecipeRepositoryImpl,
-    private val brewSessionManager: BrewSessionManager
+    private val brewSessionManager: BrewSessionManager,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecipeUiState())
@@ -111,6 +117,15 @@ class RecipeViewModel @Inject constructor(
             result = recipeRepository.exportRecipe(recipe.id)
         }
         return result
+    }
+
+    fun exportToClipboard(recipe: Recipe) {
+        viewModelScope.launch {
+            val json = recipeRepository.exportRecipe(recipe.id)
+            val clipboard = appContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("recipe", json))
+            Toast.makeText(appContext, "配方JSON已复制到剪贴板", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun getFilteredRecipes(): List<Recipe> {

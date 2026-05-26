@@ -1,5 +1,9 @@
 package com.driplab.app.ui.recipe
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,9 +20,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -40,15 +45,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.Recipe
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun RecipeScreen(viewModel: RecipeViewModel = hiltViewModel()) {
+fun RecipeScreen(navController: NavController, viewModel: RecipeViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
 
     Scaffold(
@@ -69,7 +76,7 @@ fun RecipeScreen(viewModel: RecipeViewModel = hiltViewModel()) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { },
+                onClick = { navController.navigate("recipe_edit/0") },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "新建配方",
@@ -134,7 +141,9 @@ fun RecipeScreen(viewModel: RecipeViewModel = hiltViewModel()) {
                         RecipeCard(
                             recipe = recipe,
                             onSelect = { viewModel.selectRecipeForBrewing(recipe) },
-                            onDelete = { viewModel.deleteRecipe(recipe) }
+                            onEdit = { navController.navigate("recipe_edit/${recipe.id}") },
+                            onDelete = { viewModel.deleteRecipe(recipe) },
+                            onExport = { viewModel.exportToClipboard(recipe) }
                         )
                     }
                 }
@@ -203,7 +212,8 @@ private fun RecipeConfirmDialog(
 }
 
 @Composable
-private fun RecipeCard(recipe: Recipe, onSelect: () -> Unit, onDelete: () -> Unit) {
+private fun RecipeCard(recipe: Recipe, onSelect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onExport: () -> Unit) {
+    val isPourOver = recipe.method == BrewMethod.POUR_OVER
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -229,6 +239,16 @@ private fun RecipeCard(recipe: Recipe, onSelect: () -> Unit, onDelete: () -> Uni
                     Text("${recipe.temperature}°C", style = MaterialTheme.typography.bodySmall)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("${recipe.steps.size}段", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            if (isPourOver) {
+                IconButton(onClick = onExport) {
+                    Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = "导出",
+                        tint = MaterialTheme.colorScheme.primary)
+                }
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "编辑",
+                        tint = MaterialTheme.colorScheme.primary)
                 }
             }
             IconButton(onClick = onDelete) {

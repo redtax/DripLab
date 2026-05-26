@@ -177,11 +177,15 @@ class PourOverViewModel @Inject constructor(
 
     private fun setupBrewTimerCallbacks() {
         brewTimer.onPhaseChanged = { phase, targetWater, instruction ->
-            val prompt = when (phase) {
-                BrewPhase.BLOOM -> "闷蒸开始，注入${targetWater}克水，${instruction}"
-                BrewPhase.POUR -> "开始注水，目标${targetWater}克"
-                BrewPhase.WAIT -> "注水量达标时请暂停，等待滴滤"
-                else -> instruction
+            val prompt = if (instruction.isNotBlank()) {
+                instruction
+            } else {
+                when (phase) {
+                    BrewPhase.BLOOM -> "闷蒸开始，注入${targetWater}克水"
+                    BrewPhase.POUR -> "开始注水，目标${targetWater}克"
+                    BrewPhase.WAIT -> "注水量达标时请暂停，等待滴滤"
+                    else -> ""
+                }
             }
             _uiState.value = _uiState.value.copy(voicePrompt = prompt)
             speak(prompt)
