@@ -38,8 +38,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -428,7 +426,7 @@ private fun CoffeeAndWaterSection(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "${String.format("%.1f", state.coffeeWeight)}g",
+                        text = "${"%.1f".format(java.util.Locale.getDefault(), state.coffeeWeight)}g",
                         style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -681,12 +679,15 @@ private fun TemperatureSection(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    IconButton(
-                        onClick = { viewModel.adjustTempUp() },
-                        modifier = Modifier.size(44.dp),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                        )
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                CircleShape
+                            )
+                            .clickable { viewModel.adjustTempUp() },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.KeyboardArrowUp,
@@ -696,12 +697,15 @@ private fun TemperatureSection(
                         )
                     }
                     Spacer(modifier = Modifier.height(2.dp))
-                    IconButton(
-                        onClick = { viewModel.adjustTempDown() },
-                        modifier = Modifier.size(44.dp),
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                        )
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                                CircleShape
+                            )
+                            .clickable { viewModel.adjustTempDown() },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.KeyboardArrowDown,
@@ -832,16 +836,6 @@ private fun methodDisplayName(method: BrewMethod): String = when (method) {
     BrewMethod.MOKA_POT -> "摩卡壶"
     BrewMethod.COLD_BREW -> "冷萃"
     BrewMethod.SIPHON -> "虹吸壶"
-}
-
-private fun phaseDisplayName(phase: BrewPhase): String = when (phase) {
-    BrewPhase.IDLE -> "准备开始"
-    BrewPhase.BLOOM -> "闷蒸"
-    BrewPhase.POUR -> "注水"
-    BrewPhase.WAIT -> "等待滴滤"
-    BrewPhase.STEEP -> "浸泡"
-    BrewPhase.PRESS -> "压滤"
-    BrewPhase.COMPLETE -> "完成"
 }
 
 private fun stepDisplayName(bs: BrewState): String {
