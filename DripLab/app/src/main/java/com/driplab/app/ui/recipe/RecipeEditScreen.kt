@@ -27,7 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -52,6 +52,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -82,6 +83,12 @@ fun RecipeEditScreen(
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
 
+    LaunchedEffect(recipeId) {
+        if (recipeId > 0) {
+            viewModel.loadRecipe(recipeId)
+        }
+    }
+
     DisposableEffect(context) {
         val instance = TextToSpeech(context) { _ -> }
         instance.language = Locale.CHINESE
@@ -107,7 +114,7 @@ fun RecipeEditScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "返回",
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回",
                             tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
