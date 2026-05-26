@@ -26,7 +26,8 @@ class PresetRecipeInitializer @Inject constructor(
                 createOnePour(),
                 createThreeStage(),
                 createFourStage(),
-                createChampion()
+                createKasuya46(),
+                createWangCeFourStage()
             )
 
             presets.forEach { (recipe, steps) ->
@@ -83,21 +84,37 @@ class PresetRecipeInitializer @Inject constructor(
         )
     }
 
-    private fun createChampion(): Pair<RecipeEntity, List<RecipeStepEntity>> {
+    private fun createKasuya46(): Pair<RecipeEntity, List<RecipeStepEntity>> {
         return RecipeEntity(
-            name = "冠军方案",
+            name = "粕谷哲·46手冲法",
             method = "POUR_OVER",
             coffeeWeight = 15f,
-            waterRatio = "1:16",
-            temperature = 90,
+            waterRatio = "1:15",
+            temperature = 92,
             isDefault = true
         ) to listOf(
-            RecipeStepEntity(recipeId = 0, sequence = 1, phase = "BLOOM", duration = 30, targetWater = 50, instruction = "50g水闷蒸"),
-            RecipeStepEntity(recipeId = 0, sequence = 2, phase = "POUR", duration = 20, targetWater = 50, instruction = "第1次50g注水"),
-            RecipeStepEntity(recipeId = 0, sequence = 3, phase = "POUR", duration = 20, targetWater = 50, instruction = "第2次50g注水"),
-            RecipeStepEntity(recipeId = 0, sequence = 4, phase = "POUR", duration = 20, targetWater = 50, instruction = "第3次50g注水"),
-            RecipeStepEntity(recipeId = 0, sequence = 5, phase = "POUR", duration = 20, targetWater = 50, instruction = "第4次50g注水"),
-            RecipeStepEntity(recipeId = 0, sequence = 6, phase = "WAIT", duration = 30, targetWater = 50, instruction = "第5次50g注水，等待滴滤完成")
+            RecipeStepEntity(recipeId = 0, sequence = 1, phase = "POUR", duration = 45, targetWater = 45, instruction = "第一段(40%): 注入45g水，决定了酸度与甜度的平衡"),
+            RecipeStepEntity(recipeId = 0, sequence = 2, phase = "POUR", duration = 45, targetWater = 45, instruction = "第二段(20%): 注入45g水，决定了咖啡的甜度"),
+            RecipeStepEntity(recipeId = 0, sequence = 3, phase = "POUR", duration = 45, targetWater = 30, instruction = "第三段(10%): 注入30g水，决定咖啡的口感强度"),
+            RecipeStepEntity(recipeId = 0, sequence = 4, phase = "POUR", duration = 45, targetWater = 30, instruction = "第四段(10%): 注入30g水，后段低温减少杂味"),
+            RecipeStepEntity(recipeId = 0, sequence = 5, phase = "WAIT", duration = 45, targetWater = 75, instruction = "第五段(20%): 注入75g水，等待滴滤完成")
+        )
+    }
+
+    private fun createWangCeFourStage(): Pair<RecipeEntity, List<RecipeStepEntity>> {
+        return RecipeEntity(
+            name = "王策·四段式手法",
+            method = "POUR_OVER",
+            coffeeWeight = 15f,
+            waterRatio = "1:15",
+            temperature = 92,
+            isDefault = true
+        ) to listOf(
+            RecipeStepEntity(recipeId = 0, sequence = 1, phase = "BLOOM", duration = 35, targetWater = 35, instruction = "闷蒸: 注入35g水，闷蒸35秒"),
+            RecipeStepEntity(recipeId = 0, sequence = 2, phase = "POUR", duration = 45, targetWater = 50, instruction = "第一段: 绕圈注入50g水，待水位下降到底部"),
+            RecipeStepEntity(recipeId = 0, sequence = 3, phase = "POUR", duration = 45, targetWater = 60, instruction = "第二段: 注入60g水，提香与支撑"),
+            RecipeStepEntity(recipeId = 0, sequence = 4, phase = "POUR", duration = 45, targetWater = 40, instruction = "第三段: 注入40g水，收尾与层次"),
+            RecipeStepEntity(recipeId = 0, sequence = 5, phase = "WAIT", duration = 45, targetWater = 40, instruction = "第四段: 注入40g水，让水流自然滴落完毕")
         )
     }
 }
