@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -79,13 +80,17 @@ fun RecipeEditScreen(
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    val tts = remember {
-        TextToSpeech(context) { status ->
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+
+    DisposableEffect(context) {
+        val instance = TextToSpeech(context) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                viewModel.initTts(it)
-                it.language = Locale.CHINESE
+                instance.language = Locale.CHINESE
             }
         }
+        tts = instance
+        viewModel.initTts(instance)
+        onDispose { instance.shutdown() }
     }
 
     if (state.saveSuccess) {

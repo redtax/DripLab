@@ -26,6 +26,7 @@ import com.driplab.app.ui.navigation.Screen
 import com.driplab.app.ui.navigation.bottomNavItems
 import com.driplab.app.ui.note.NoteScreen
 import com.driplab.app.ui.pourover.PourOverScreen
+import com.driplab.app.ui.recipe.RecipeEditScreen
 import com.driplab.app.ui.recipe.RecipeScreen
 import com.driplab.app.ui.settings.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
