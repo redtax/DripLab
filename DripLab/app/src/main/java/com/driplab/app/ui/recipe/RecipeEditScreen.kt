@@ -83,11 +83,8 @@ fun RecipeEditScreen(
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
 
     DisposableEffect(context) {
-        val instance = TextToSpeech(context) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                instance.language = Locale.CHINESE
-            }
-        }
+        val instance = TextToSpeech(context) { _ -> }
+        instance.language = Locale.CHINESE
         tts = instance
         viewModel.initTts(instance)
         onDispose { instance.shutdown() }
