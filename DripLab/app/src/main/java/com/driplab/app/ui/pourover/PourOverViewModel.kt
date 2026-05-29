@@ -1,10 +1,12 @@
 package com.driplab.app.ui.pourover
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
 import android.os.Bundle
+import android.provider.Settings
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
@@ -131,13 +133,15 @@ class PourOverViewModel @Inject constructor(
             .edit().putLong(KEY_LAST_RECIPE_ID, id).apply()
     }
 
-    @Suppress("DEPRECATION")
     private fun initTts() {
-        tts = TextToSpeech(appContext) { status ->
+        val defaultEngine = resolveDefaultEngine()
+        Log.i(TAG, "TTS defaultEngine=$defaultEngine")
+
+        val listener = TextToSpeech.OnInitListener { status ->
             Log.i(TAG, "TTS onInit status=$status")
             if (status != TextToSpeech.SUCCESS) {
                 Log.e(TAG, "TTS init failed, status=$status")
-                return@TextToSpeech
+                return@OnInitListener
             }
             var languageSet = false
             val candidates = listOf(
@@ -182,6 +186,48 @@ class PourOverViewModel @Inject constructor(
                 Log.e(TAG, "TTS: no zh voice data installed")
             }
         }
+
+        if (defaultEngine != null) {
+            tts = TextToSpeech(appContext, listener, defaultEngine)
+        } else {
+            @Suppress("DEPRECATION")
+            tts = TextToSpeech(appContext, listener)
+        }
+    }
+
+    private fun resolveDefaultEngine(): String? {
+        try {
+            val engine = Settings.Secure.getString(appContext.contentResolver, "tts_default_synth")
+            if (!engine.isNullOrBlank()) {
+                Log.i(TAG, "TTS engine from Settings.Secure: $engine")
+                return engine
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS Settings.Secure failed: ${e.message}")
+        }
+        try {
+            val method = TextToSpeech::class.java.getMethod("getDefaultEngine")
+            val engine = method.invoke(null) as? String
+            if (!engine.isNullOrBlank()) {
+                Log.i(TAG, "TTS engine from reflection: $engine")
+                return engine
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS reflection failed: ${e.message}")
+        }
+        try {
+            val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
+            val infos = appContext.packageManager.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            if (infos.isNotEmpty()) {
+                val engine = infos[0].serviceInfo.packageName
+                Log.i(TAG, "TTS engine from PackageManager: $engine (${infos.size} engines)")
+                return engine
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS PackageManager query failed: ${e.message}")
+        }
+        Log.e(TAG, "TTS: no engine found via any method")
+        return null
     }
 
     private fun initSoundPool() {
