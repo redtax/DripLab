@@ -2,8 +2,12 @@ package com.driplab.app.ui.pourover
 
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.media.SoundPool
+import android.os.Bundle
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.driplab.app.core.calculator.BrewCalculator
@@ -68,6 +72,7 @@ class PourOverViewModel @Inject constructor(
 
     val brewTimer = BrewTimer()
     private var tts: TextToSpeech? = null
+    private var isTtsReady: Boolean = false
     private var soundPool: SoundPool? = null
     private var clickSoundId: Int = 0
     private var tickSoundId: Int = 0
@@ -126,10 +131,55 @@ class PourOverViewModel @Inject constructor(
             .edit().putLong(KEY_LAST_RECIPE_ID, id).apply()
     }
 
+    @Suppress("DEPRECATION")
     private fun initTts() {
         tts = TextToSpeech(appContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                tts?.language = Locale.CHINESE
+            Log.i(TAG, "TTS onInit status=$status")
+            if (status != TextToSpeech.SUCCESS) {
+                Log.e(TAG, "TTS init failed, status=$status")
+                return@TextToSpeech
+            }
+            var languageSet = false
+            val candidates = listOf(
+                Locale.forLanguageTag("zh-CN"),
+                Locale.SIMPLIFIED_CHINESE,
+                Locale.CHINESE,
+                Locale.forLanguageTag("zh")
+            )
+            for (locale in candidates) {
+                val result = tts?.setLanguage(locale) ?: continue
+                Log.d(TAG, "TTS setLanguage($locale) result=$result")
+                if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+                    languageSet = true
+                    break
+                }
+            }
+            if (!languageSet) {
+                for (loc in Locale.getAvailableLocales()) {
+                    if (loc.language == "zh") {
+                        tts?.setLanguage(loc)
+                        languageSet = true
+                        Log.i(TAG, "TTS fallback locale $loc")
+                        break
+                    }
+                }
+            }
+            if (languageSet) {
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {}
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        Log.e(TAG, "TTS utterance error: $utteranceId")
+                    }
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        Log.e(TAG, "TTS utterance error: $utteranceId code=$errorCode")
+                    }
+                })
+                isTtsReady = true
+                Log.i(TAG, "TTS ready, language=$languageSet")
+            } else {
+                Log.e(TAG, "TTS: no zh voice data installed")
             }
         }
     }
@@ -214,7 +264,26 @@ class PourOverViewModel @Inject constructor(
     }
 
     private fun speak(text: String) {
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+        if (!isTtsReady || text.isBlank()) {
+            Log.w(TAG, "TTS speak skipped: ready=$isTtsReady text='${text.take(30)}'")
+            return
+        }
+        val utteranceId = "driplab_${System.currentTimeMillis()}"
+        val params = Bundle().apply {
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+            putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
+        }
+        val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        if (result == TextToSpeech.SUCCESS) {
+            Log.d(TAG, "TTS speak enqueued: id=$utteranceId")
+        } else {
+            Log.e(TAG, "TTS speak failed: result=$result, reinitializing")
+            isTtsReady = false
+            tts?.stop()
+            tts?.shutdown()
+            tts = null
+            initTts()
+        }
     }
 
     fun updateCoffeeWeight(weight: Float) {
@@ -347,6 +416,9 @@ class PourOverViewModel @Inject constructor(
     }
 
     fun startBrewing() {
+        if (!isTtsReady) {
+            initTts()
+        }
         val state = _uiState.value
         val selected = state.selectedRecipe
         val recipe = if (selected != null) {
@@ -451,11 +523,14 @@ class PourOverViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        isTtsReady = false
+        tts?.stop()
         tts?.shutdown()
         soundPool?.release()
     }
 
     companion object {
+        private const val TAG = "DripLab"
         private const val PREFS_NAME = "driplab_prefs"
         private const val KEY_LAST_RECIPE_ID = "last_recipe_id"
     }
