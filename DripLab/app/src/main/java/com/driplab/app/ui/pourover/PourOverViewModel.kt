@@ -284,7 +284,7 @@ class PourOverViewModel @Inject constructor(
     fun playClickSound() {
         val state = themeManager.state.value
         if (state.alertMode.hasSound) {
-            soundPool?.play(clickSoundId, 0.15f, 0.15f, 1, 0, 1f)
+            soundPool?.play(clickSoundId, 0.9f, 0.9f, 1, 0, 1f)
         }
     }
 
@@ -292,16 +292,16 @@ class PourOverViewModel @Inject constructor(
         val alertState = themeManager.state.value
         if (!alertState.alertMode.hasSound) return
         if (remainingSeconds <= 10) {
-            soundPool?.play(tickAlertSoundId, 0.3f, 0.3f, 1, 0, 1f)
+            soundPool?.play(tickAlertSoundId, 0.9f, 0.9f, 1, 0, 1f)
         } else {
-            soundPool?.play(tickSoundId, 0.12f, 0.12f, 1, 0, 1f)
+            soundPool?.play(tickSoundId, 0.9f, 0.9f, 1, 0, 1f)
         }
     }
 
     private fun playDingSound() {
         val alertState = themeManager.state.value
         if (alertState.alertMode.hasSound) {
-            soundPool?.play(dingSoundId, 0.35f, 0.35f, 1, 0, 1f)
+            soundPool?.play(dingSoundId, 0.9f, 0.9f, 1, 0, 1f)
         }
     }
 
@@ -350,7 +350,7 @@ class PourOverViewModel @Inject constructor(
         }
         val utteranceId = "driplab_${System.currentTimeMillis()}"
         val params = Bundle().apply {
-            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 0.9f)
             putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
         }
         val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
