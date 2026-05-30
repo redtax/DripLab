@@ -82,6 +82,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             AlertModeSection(state.alertMode, state.bgMusicUri, viewModel)
             Spacer(modifier = Modifier.height(16.dp))
             AboutSection()
+
+            Text(
+                "滴落间Lab v1.0",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
+            )
+
+            TtsSettingsSection(ttsManager = viewModel.ttsEngineManager)
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<tts-engine xmlns:android="http://schemas.android.com/apk/res/android"
+    android:name="滴落间Lab内置语音"
+    android:description="滴落间Lab自带的离线语音引擎，支持中文朗读" />

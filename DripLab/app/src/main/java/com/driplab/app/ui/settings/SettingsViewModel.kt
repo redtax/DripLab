@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.driplab.app.core.theme.AppThemeState
 import com.driplab.app.core.theme.DripTheme
 import com.driplab.app.core.theme.ThemeManager
+import com.driplab.app.core.tts.TtsEngineManager
 import com.driplab.app.domain.model.AlertMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,7 +15,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val themeManager: ThemeManager
+    private val themeManager: ThemeManager,
+    val ttsEngineManager: TtsEngineManager
 ) : ViewModel() {
 
     val uiState: StateFlow<AppThemeState> = themeManager.state

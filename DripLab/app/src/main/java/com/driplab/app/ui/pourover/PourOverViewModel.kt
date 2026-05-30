@@ -17,6 +17,7 @@ import com.driplab.app.core.calculator.BrewCalculator.RatioPreset
 import com.driplab.app.core.theme.ThemeManager
 import com.driplab.app.core.timer.BrewState
 import com.driplab.app.core.timer.BrewTimer
+import com.driplab.app.core.tts.TtsEngineManager
 import com.driplab.app.data.BrewSessionManager
 import com.driplab.app.data.repository.BrewNoteRepositoryImpl
 import com.driplab.app.data.repository.RecipeRepositoryImpl
@@ -66,6 +67,7 @@ class PourOverViewModel @Inject constructor(
     private val brewNoteRepository: BrewNoteRepositoryImpl,
     private val themeManager: ThemeManager,
     private val brewSessionManager: BrewSessionManager,
+    private val ttsEngineManager: TtsEngineManager,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
@@ -134,8 +136,15 @@ class PourOverViewModel @Inject constructor(
     }
 
     private fun initTts() {
-        val engines = resolveEngineList()
-        Log.i(TAG, "TTS resolved engines: $engines")
+        val selectedEngine = ttsEngineManager.getSelectedEngine()
+        val autoEngines = resolveEngineList()
+        val engines = if (selectedEngine != null) {
+            Log.i(TAG, "TTS user selected engine: $selectedEngine")
+            listOf(selectedEngine) + autoEngines.filter { it != selectedEngine }
+        } else {
+            autoEngines
+        }
+        Log.i(TAG, "TTS engines to try: $engines")
         if (engines.isEmpty()) {
             Log.e(TAG, "TTS: no engines found, using deprecated constructor")
             @Suppress("DEPRECATION")
