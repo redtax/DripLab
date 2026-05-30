@@ -52,7 +52,7 @@ class DripLabTtsService : android.speech.tts.TextToSpeechService() {
             return
         }
         Log.d(TAG, "onSynthesizeText: $text")
-        callback.error(TextToSpeech.ERROR_NOT_SUPPORTED_YET)
+        callback.error(TextToSpeech.ERROR_SYNTHESIS)
     }
 
     private fun buildLocale(lang: String?, country: String?, variant: String?): Locale? {
