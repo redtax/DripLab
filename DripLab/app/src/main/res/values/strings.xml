@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tts_engine_description">滴落间Lab自带的离线语音引擎，支持中文朗读</string>
+</resources>
