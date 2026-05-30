@@ -257,8 +257,8 @@ class PourOverViewModel @Inject constructor(
 
     private fun initSoundPool() {
         val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
             .build()
         soundPool = SoundPool.Builder()
             .setMaxStreams(4)
@@ -275,7 +275,7 @@ class PourOverViewModel @Inject constructor(
     fun playClickSound() {
         val state = themeManager.state.value
         if (state.alertMode.hasSound) {
-            soundPool?.play(clickSoundId, 0.3f, 0.3f, 1, 0, 1f)
+            soundPool?.play(clickSoundId, 0.15f, 0.15f, 1, 0, 1f)
         }
     }
 
@@ -283,16 +283,16 @@ class PourOverViewModel @Inject constructor(
         val alertState = themeManager.state.value
         if (!alertState.alertMode.hasSound) return
         if (remainingSeconds <= 10) {
-            soundPool?.play(tickAlertSoundId, 0.5f, 0.5f, 1, 0, 1f)
+            soundPool?.play(tickAlertSoundId, 0.3f, 0.3f, 1, 0, 1f)
         } else {
-            soundPool?.play(tickSoundId, 0.25f, 0.25f, 1, 0, 1f)
+            soundPool?.play(tickSoundId, 0.12f, 0.12f, 1, 0, 1f)
         }
     }
 
     private fun playDingSound() {
         val alertState = themeManager.state.value
         if (alertState.alertMode.hasSound) {
-            soundPool?.play(dingSoundId, 0.6f, 0.6f, 1, 0, 1f)
+            soundPool?.play(dingSoundId, 0.35f, 0.35f, 1, 0, 1f)
         }
     }
 
