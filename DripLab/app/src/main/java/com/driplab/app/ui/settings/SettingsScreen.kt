@@ -81,16 +81,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Spacer(modifier = Modifier.height(16.dp))
             AlertModeSection(state.alertMode, state.bgMusicUri, viewModel)
             Spacer(modifier = Modifier.height(16.dp))
-            AboutSection()
-
-            Text(
-                "滴落间Lab v1.0",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
-            )
-
             TtsSettingsSection(ttsManager = viewModel.ttsEngineManager)
+            Spacer(modifier = Modifier.height(16.dp))
+            AboutSection()
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -310,7 +303,7 @@ private fun AboutSection() {
             Spacer(modifier = Modifier.height(8.dp))
             Text("滴落间Lab v1.0.0", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(4.dp))
-            Text("DripLab - 咖啡冲煮助手", style = MaterialTheme.typography.bodyMedium,
+            Text("DripLab - 咖啡冲煮助手、Redtax 制作", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.height(4.dp))
             Text("专为咖啡爱好者打造的多方法冲煮辅助工具",
