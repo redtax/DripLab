@@ -134,13 +134,42 @@ class PourOverViewModel @Inject constructor(
     }
 
     private fun initTts() {
-        val defaultEngine = resolveDefaultEngine()
-        Log.i(TAG, "TTS defaultEngine=$defaultEngine")
+        val engines = resolveEngineList()
+        Log.i(TAG, "TTS resolved engines: $engines")
+        if (engines.isEmpty()) {
+            Log.e(TAG, "TTS: no engines found, using deprecated constructor")
+            @Suppress("DEPRECATION")
+            tts = TextToSpeech(appContext, createOnInitListener(-1))
+            return
+        }
+        tryEngine(engines, 0)
+    }
 
-        val listener = TextToSpeech.OnInitListener { status ->
-            Log.i(TAG, "TTS onInit status=$status")
+    private fun tryEngine(engines: List<String>, index: Int) {
+        if (index >= engines.size) {
+            Log.w(TAG, "TTS: all ${engines.size} engines failed, trying deprecated constructor")
+            @Suppress("DEPRECATION")
+            tts = TextToSpeech(appContext, createOnInitListener(-1))
+            return
+        }
+        val engine = engines[index]
+        Log.i(TAG, "TTS trying engine[$index]: $engine")
+        try {
+            tts = TextToSpeech(appContext, createOnInitListener(index), engine)
+        } catch (e: Exception) {
+            Log.e(TAG, "TTS engine[$index] constructor threw: ${e.message}")
+            tts = null
+            tryEngine(engines, index + 1)
+        }
+    }
+
+    private fun createOnInitListener(engineIndex: Int): TextToSpeech.OnInitListener {
+        return TextToSpeech.OnInitListener { status ->
+            Log.i(TAG, "TTS engine[$engineIndex] onInit status=$status")
             if (status != TextToSpeech.SUCCESS) {
-                Log.e(TAG, "TTS init failed, status=$status")
+                Log.e(TAG, "TTS engine[$engineIndex] init failed, status=$status")
+                tts?.shutdown()
+                tts = null
                 return@OnInitListener
             }
             var languageSet = false
@@ -181,26 +210,20 @@ class PourOverViewModel @Inject constructor(
                     }
                 })
                 isTtsReady = true
-                Log.i(TAG, "TTS ready, language=$languageSet")
+                Log.i(TAG, "TTS ready, engineIndex=$engineIndex language=$languageSet")
             } else {
                 Log.e(TAG, "TTS: no zh voice data installed")
             }
         }
-
-        if (defaultEngine != null) {
-            tts = TextToSpeech(appContext, listener, defaultEngine)
-        } else {
-            @Suppress("DEPRECATION")
-            tts = TextToSpeech(appContext, listener)
-        }
     }
 
-    private fun resolveDefaultEngine(): String? {
+    private fun resolveEngineList(): List<String> {
+        val result = linkedSetOf<String>()
         try {
             val engine = Settings.Secure.getString(appContext.contentResolver, "tts_default_synth")
             if (!engine.isNullOrBlank()) {
+                result.add(engine)
                 Log.i(TAG, "TTS engine from Settings.Secure: $engine")
-                return engine
             }
         } catch (e: Exception) {
             Log.w(TAG, "TTS Settings.Secure failed: ${e.message}")
@@ -209,8 +232,8 @@ class PourOverViewModel @Inject constructor(
             val method = TextToSpeech::class.java.getMethod("getDefaultEngine")
             val engine = method.invoke(null) as? String
             if (!engine.isNullOrBlank()) {
+                result.add(engine)
                 Log.i(TAG, "TTS engine from reflection: $engine")
-                return engine
             }
         } catch (e: Exception) {
             Log.w(TAG, "TTS reflection failed: ${e.message}")
@@ -218,16 +241,18 @@ class PourOverViewModel @Inject constructor(
         try {
             val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
             val infos = appContext.packageManager.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            if (infos.isNotEmpty()) {
-                val engine = infos[0].serviceInfo.packageName
-                Log.i(TAG, "TTS engine from PackageManager: $engine (${infos.size} engines)")
-                return engine
+            Log.i(TAG, "TTS PackageManager found ${infos.size} engines")
+            for (info in infos) {
+                val pkg = info.serviceInfo.packageName
+                if (pkg !in result) {
+                    result.add(pkg)
+                    Log.i(TAG, "TTS engine from PackageManager: $pkg")
+                }
             }
         } catch (e: Exception) {
             Log.w(TAG, "TTS PackageManager query failed: ${e.message}")
         }
-        Log.e(TAG, "TTS: no engine found via any method")
-        return null
+        return result.toList()
     }
 
     private fun initSoundPool() {
