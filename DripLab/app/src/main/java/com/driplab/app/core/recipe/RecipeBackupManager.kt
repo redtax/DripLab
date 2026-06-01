@@ -37,6 +37,7 @@ data class BackupRecipeStep(
     val duration: Int,
     val targetWater: Int,
     val waterRatio: Float,
+    val durationRatio: Float = 0f,
     val instruction: String
 )
 
@@ -80,6 +81,7 @@ class RecipeBackupManager @Inject constructor(
                                 duration = step.duration,
                                 targetWater = step.targetWater,
                                 waterRatio = step.waterRatio,
+                                durationRatio = step.durationRatio,
                                 instruction = step.instruction
                             )
                         }
@@ -120,6 +122,7 @@ class RecipeBackupManager @Inject constructor(
                             duration = step.duration,
                             targetWater = step.targetWater,
                             waterRatio = step.waterRatio,
+                            durationRatio = step.durationRatio,
                             instruction = step.instruction
                         )
                     }

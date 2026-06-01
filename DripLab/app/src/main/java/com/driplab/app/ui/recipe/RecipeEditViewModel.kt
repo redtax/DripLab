@@ -145,9 +145,11 @@ class RecipeEditViewModel @Inject constructor(
             val current = _state.value.recipe
             val ratioNum = current.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
             val totalWater = current.coffeeWeight * ratioNum
+            val totalDuration = current.steps.sumOf { it.duration }
             val stepsWithRatio = current.steps.map { step ->
-                val ratio = if (totalWater > 0f) step.targetWater.toFloat() / totalWater * 100f else 0f
-                step.copy(waterRatio = ratio)
+                val wRatio = if (totalWater > 0f) step.targetWater.toFloat() / totalWater * 100f else 0f
+                val dRatio = if (totalDuration > 0) step.duration.toFloat() / totalDuration * 100f else 0f
+                step.copy(waterRatio = wRatio, durationRatio = dRatio)
             }
             val recipe = current.copy(steps = stepsWithRatio)
             recipeRepository.saveRecipe(recipe)
@@ -160,9 +162,11 @@ class RecipeEditViewModel @Inject constructor(
             val current = _state.value.recipe
             val ratioNum = current.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
             val totalWater = current.coffeeWeight * ratioNum
+            val totalDuration = current.steps.sumOf { it.duration }
             val stepsWithRatio = current.steps.map { step ->
-                val ratio = if (totalWater > 0f) step.targetWater.toFloat() / totalWater * 100f else 0f
-                step.copy(waterRatio = ratio)
+                val wRatio = if (totalWater > 0f) step.targetWater.toFloat() / totalWater * 100f else 0f
+                val dRatio = if (totalDuration > 0) step.duration.toFloat() / totalDuration * 100f else 0f
+                step.copy(waterRatio = wRatio, durationRatio = dRatio)
             }
             val text = formatManager.exportRecipe(
                 current.copy(steps = stepsWithRatio),
@@ -186,6 +190,7 @@ class RecipeEditViewModel @Inject constructor(
                     duration = step.duration,
                     targetWater = step.targetWater,
                     waterRatio = step.waterRatio,
+                    durationRatio = step.durationRatio,
                     instruction = step.instruction
                 )
             }

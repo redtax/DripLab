@@ -515,11 +515,24 @@ class PourOverViewModel @Inject constructor(
     private fun buildProportionalRecipe(original: Recipe, newTotalWater: Float): Recipe {
         val originalTotal = original.steps.sumOf { it.targetWater }.toFloat()
         if (originalTotal <= 0f) return original
+        val scaleFactor = newTotalWater / originalTotal
+
+        val originalTotalDuration = original.steps.sumOf { it.duration }
+        val newTotalDuration = (originalTotalDuration * scaleFactor).toInt()
+
         return original.copy(
             steps = original.steps.map { step ->
-                val proportion = step.targetWater / originalTotal
-                val newTarget = (proportion * newTotalWater).roundToInt()
-                step.copy(targetWater = newTarget)
+                val newWater = if (step.waterRatio > 0f) {
+                    (newTotalWater * step.waterRatio / 100f).roundToInt()
+                } else {
+                    (step.targetWater * scaleFactor).roundToInt()
+                }
+                val newDuration = if (step.durationRatio > 0f) {
+                    (newTotalDuration * step.durationRatio / 100f).roundToInt().coerceAtLeast(1)
+                } else {
+                    (step.duration * scaleFactor).roundToInt().coerceAtLeast(1)
+                }
+                step.copy(targetWater = newWater, duration = newDuration)
             }
         )
     }

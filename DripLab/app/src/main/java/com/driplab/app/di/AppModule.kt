@@ -33,7 +33,7 @@ object AppModule {
             context,
             DripLabDatabase::class.java,
             "driplab.db"
-        ).addMigrations(DripLabDatabase.MIGRATION_4_5).build()
+        ).addMigrations(DripLabDatabase.MIGRATION_4_5, DripLabDatabase.MIGRATION_5_6).build()
         presetInitializer.initialize(db)
         return db
     }

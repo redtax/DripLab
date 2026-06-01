@@ -79,6 +79,7 @@ class RecipeViewModel @Inject constructor(
                         duration = step.duration,
                         targetWater = step.targetWater,
                         waterRatio = step.waterRatio,
+                        durationRatio = step.durationRatio,
                         instruction = step.instruction
                     )
                 })

@@ -40,11 +40,15 @@ class RecipeRepositoryImpl @Inject constructor(
         } else {
             recipeDao.insertRecipe(entity)
         }
+        val ratioNum = recipe.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
+        val totalWater = recipe.coffeeWeight * ratioNum
+        val totalDuration = recipe.steps.sumOf { it.duration }
         val steps = recipe.steps.map { step ->
-            val ratio = if (step.waterRatio > 0f) step.waterRatio else {
-                val ratioNum = recipe.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
-                val totalWater = recipe.coffeeWeight * ratioNum
+            val waterR = if (step.waterRatio > 0f) step.waterRatio else {
                 if (totalWater > 0f) step.targetWater.toFloat() / totalWater * 100f else 0f
+            }
+            val durR = if (step.durationRatio > 0f) step.durationRatio else {
+                if (totalDuration > 0) step.duration.toFloat() / totalDuration * 100f else 0f
             }
             RecipeStepEntity(
                 recipeId = recipeId,
@@ -52,7 +56,8 @@ class RecipeRepositoryImpl @Inject constructor(
                 phase = step.phase.name,
                 duration = step.duration,
                 targetWater = step.targetWater,
-                waterRatio = ratio,
+                waterRatio = waterR,
+                durationRatio = durR,
                 instruction = step.instruction
             )
         }
@@ -112,6 +117,7 @@ class RecipeRepositoryImpl @Inject constructor(
             duration = duration,
             targetWater = targetWater,
             waterRatio = waterRatio,
+            durationRatio = durationRatio,
             instruction = instruction
         )
     }

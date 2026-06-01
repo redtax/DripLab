@@ -28,10 +28,12 @@ class PresetRecipeInitializer @Inject constructor(
             )
             presets.forEach { (recipe, steps) ->
                 val recipeId = dao.insertRecipe(recipe)
+                val totalDuration = steps.sumOf { it.duration }
                 val stepsWithRatio = steps.map { step ->
                     step.copy(
                         recipeId = recipeId,
-                        waterRatio = calculateWaterRatio(step.targetWater, recipe)
+                        waterRatio = calculateWaterRatio(step.targetWater, recipe),
+                        durationRatio = if (totalDuration > 0) step.duration.toFloat() / totalDuration * 100f else 0f
                     )
                 }
                 dao.insertSteps(stepsWithRatio)

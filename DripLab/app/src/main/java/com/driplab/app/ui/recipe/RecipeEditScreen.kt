@@ -334,10 +334,18 @@ private fun StepsSection(state: RecipeEditState, viewModel: RecipeEditViewModel)
                                 style = MaterialTheme.typography.bodyMedium)
                             Row {
                                 if (totalWater > 0f) {
-                                    val ratio = step.targetWater.toFloat() / totalWater * 100f
-                                    Text("${String.format("%.0f", ratio)}%",
+                                    val wRatio = step.targetWater.toFloat() / totalWater * 100f
+                                    Text("水${String.format("%.0f", wRatio)}%",
                                         fontSize = 11.sp,
                                         color = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                val totalDuration = state.recipe.steps.sumOf { it.duration }
+                                if (totalDuration > 0) {
+                                    val dRatio = step.duration.toFloat() / totalDuration * 100f
+                                    Text("时${String.format("%.0f", dRatio)}%",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.tertiary)
                                     Spacer(modifier = Modifier.width(8.dp))
                                 }
                                 IconButton(

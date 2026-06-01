@@ -14,6 +14,7 @@ data class ParsedRecipeStep(
     val duration: Int,
     val targetWater: Int,
     val waterRatio: Float,
+    val durationRatio: Float,
     val instruction: String
 )
 
@@ -43,14 +44,22 @@ class RecipeFormatManager @Inject constructor() {
         val totalWater = (recipe.coffeeWeight * ratioNum).toInt()
         sb.appendLine("总注水量: ${totalWater}ml")
 
-        val stepRatios = calculateRatios(steps, totalWater)
+        val totalDuration = steps.sumOf { it.duration }
+        sb.appendLine("总时长: ${totalDuration}秒")
+
+        val stepRatios = calculateWaterRatios(steps, totalWater)
         val ratioSum = stepRatios.sumOf { it.toDouble() }.toFloat()
         sb.appendLine("注水比例合计: ${df.format(ratioSum)}%")
+
+        val durationRatios = calculateDurationRatios(steps, totalDuration)
+        val durSum = durationRatios.sumOf { it.toDouble() }.toFloat()
+        sb.appendLine("时长比例合计: ${df.format(durSum)}%")
         sb.appendLine()
 
         steps.forEachIndexed { index, step ->
-            val ratio = stepRatios.getOrElse(index) { 0f }
-            sb.appendLine("[${step.sequence}] ${phaseLabel(step.phase)} | ${step.duration}秒 | ${step.targetWater}ml | ${df.format(ratio)}% | ${step.instruction}")
+            val wRatio = stepRatios.getOrElse(index) { 0f }
+            val dRatio = durationRatios.getOrElse(index) { 0f }
+            sb.appendLine("[${step.sequence}] ${phaseLabel(step.phase)} | ${step.duration}秒 | ${step.targetWater}ml | 水${df.format(wRatio)}% | 时${df.format(dRatio)}% | ${step.instruction}")
         }
 
         return sb.toString()
@@ -78,6 +87,7 @@ class RecipeFormatManager @Inject constructor() {
         val waterRatioStr = extractValue(headerLines, "粉水比")
         val temperatureStr = extractValue(headerLines, "水温")
         val totalWaterStr = extractValue(headerLines, "总注水量")
+        val totalDurationStr = extractValue(headerLines, "总时长")
 
         if (name.isNullOrBlank()) errors.add("缺少配方名")
         if (methodStr.isNullOrBlank()) errors.add("缺少冲煮方式")
@@ -99,6 +109,7 @@ class RecipeFormatManager @Inject constructor() {
         val coffeeWeight = coffeeWeightStr?.replace("g", "")?.toFloatOrNull() ?: 0f
         val temperature = temperatureStr?.replace("°C", "")?.replace("℃", "")?.toIntOrNull() ?: 0
         val totalWater = totalWaterStr?.replace("ml", "")?.toIntOrNull() ?: 0
+        val totalDuration = totalDurationStr?.replace("秒", "")?.toIntOrNull() ?: 0
 
         if (coffeeWeight <= 0f) errors.add("咖啡粉量无效")
         if (waterRatioStr.isNullOrBlank() || !waterRatioStr.matches(Regex("1:\\d+(\\.\\d+)?"))) errors.add("粉水比格式无效，应为1:xx")
@@ -111,46 +122,23 @@ class RecipeFormatManager @Inject constructor() {
         }
 
         val parsedSteps = mutableListOf<ParsedRecipeStep>()
-        val stepPattern = Regex("""\[(\d+)]\s*(.+?)\s*\|\s*(\d+)秒\s*\|\s*(\d+)ml\s*\|\s*([\d.]+)%\s*\|\s*(.+)""")
+        val newFormatPattern = Regex("""\[(\d+)]\s*(.+?)\s*\|\s*(\d+)秒\s*\|\s*(\d+)ml\s*\|\s*水([\d.]+)%\s*\|\s*时([\d.]+)%\s*\|\s*(.+)""")
+        val oldFormatPattern = Regex("""\[(\d+)]\s*(.+?)\s*\|\s*(\d+)秒\s*\|\s*(\d+)ml\s*\|\s*([\d.]+)%\s*\|\s*(.+)""")
 
         for ((idx, line) in stepLines.withIndex()) {
-            val match = stepPattern.matchEntire(line)
-            if (match == null) {
-                errors.add("第${idx + 1}步格式错误: $line")
-                continue
-            }
-            val (seqStr, phaseStr, durationStr, waterStr, ratioStr, instruction) = match.destructured
-            val phase = when (phaseStr.trim()) {
-                "闷蒸" -> BrewPhase.BLOOM
-                "注水" -> BrewPhase.POUR
-                "等待", "滴滤" -> BrewPhase.WAIT
-                else -> {
-                    errors.add("第${idx + 1}步阶段类型无效: $phaseStr")
-                    BrewPhase.POUR
+            val newMatch = newFormatPattern.matchEntire(line)
+            if (newMatch != null) {
+                val (seqStr, phaseStr, durationStr, waterStr, ratioStr, durRatioStr, instruction) = newMatch.destructured
+                parseStepLine(idx, seqStr, phaseStr, durationStr, waterStr, ratioStr, durRatioStr, instruction, totalWater, totalDuration, errors, parsedSteps)
+            } else {
+                val oldMatch = oldFormatPattern.matchEntire(line)
+                if (oldMatch != null) {
+                    val (seqStr, phaseStr, durationStr, waterStr, ratioStr, instruction) = oldMatch.destructured
+                    parseStepLine(idx, seqStr, phaseStr, durationStr, waterStr, ratioStr, null, instruction, totalWater, totalDuration, errors, parsedSteps)
+                } else {
+                    errors.add("第${idx + 1}步格式错误: $line")
                 }
             }
-            val seq = seqStr.toIntOrNull() ?: 0
-            val duration = durationStr.toIntOrNull() ?: 0
-            val targetWater = waterStr.toIntOrNull() ?: 0
-            val waterRatio = ratioStr.toFloatOrNull() ?: 0f
-
-            if (totalWater > 0 && targetWater > 0) {
-                val calcRatio = targetWater.toFloat() / totalWater * 100f
-                if (Math.abs(calcRatio - waterRatio) > 2f) {
-                    errors.add("第${idx + 1}步：注水量${targetWater}ml / 总水量${totalWater}ml = ${df.format(calcRatio)}%，但声明为${waterRatio}%")
-                }
-            }
-
-            parsedSteps.add(
-                ParsedRecipeStep(
-                    sequence = seq,
-                    phase = phase,
-                    duration = duration,
-                    targetWater = targetWater,
-                    waterRatio = waterRatio,
-                    instruction = instruction.trim()
-                )
-            )
         }
 
         if (parsedSteps.isEmpty()) {
@@ -159,6 +147,10 @@ class RecipeFormatManager @Inject constructor() {
             val ratioSum = parsedSteps.sumOf { it.waterRatio.toDouble() }.toFloat()
             if (Math.abs(ratioSum - 100f) > 3f) {
                 errors.add("注水比例合计${df.format(ratioSum)}%，偏离100%超过3%")
+            }
+            val durRatioSum = parsedSteps.sumOf { it.durationRatio.toDouble() }.toFloat()
+            if (durRatioSum > 0f && Math.abs(durRatioSum - 100f) > 3f) {
+                errors.add("时长比例合计${df.format(durRatioSum)}%，偏离100%超过3%")
             }
         }
 
@@ -178,6 +170,67 @@ class RecipeFormatManager @Inject constructor() {
         return ImportResult(true, recipe = recipe, steps = parsedSteps)
     }
 
+    private fun parseStepLine(
+        idx: Int,
+        seqStr: String,
+        phaseStr: String,
+        durationStr: String,
+        waterStr: String,
+        ratioStr: String,
+        durRatioStr: String?,
+        instruction: String,
+        totalWater: Int,
+        totalDuration: Int,
+        errors: MutableList<String>,
+        parsedSteps: MutableList<ParsedRecipeStep>
+    ) {
+        val phase = when (phaseStr.trim()) {
+            "闷蒸" -> BrewPhase.BLOOM
+            "注水" -> BrewPhase.POUR
+            "等待", "滴滤" -> BrewPhase.WAIT
+            else -> {
+                errors.add("第${idx + 1}步阶段类型无效: $phaseStr")
+                BrewPhase.POUR
+            }
+        }
+        val seq = seqStr.toIntOrNull() ?: 0
+        val duration = durationStr.toIntOrNull() ?: 0
+        val targetWater = waterStr.toIntOrNull() ?: 0
+        val waterRatio = ratioStr.toFloatOrNull() ?: 0f
+
+        if (totalWater > 0 && targetWater > 0) {
+            val calcRatio = targetWater.toFloat() / totalWater * 100f
+            if (Math.abs(calcRatio - waterRatio) > 2f) {
+                errors.add("第${idx + 1}步：注水量${targetWater}ml / 总水量${totalWater}ml = ${df.format(calcRatio)}%，但声明为${waterRatio}%")
+            }
+        }
+
+        val durationRatio = if (durRatioStr != null) {
+            val dRatio = durRatioStr.toFloatOrNull() ?: 0f
+            if (totalDuration > 0 && duration > 0) {
+                val calcDRatio = duration.toFloat() / totalDuration * 100f
+                if (Math.abs(calcDRatio - dRatio) > 2f) {
+                    errors.add("第${idx + 1}步：时长${duration}秒 / 总时长${totalDuration}秒 = ${df.format(calcDRatio)}%，但声明为${dRatio}%")
+                }
+            }
+            dRatio
+        } else {
+            if (totalDuration > 0) duration.toFloat() / totalDuration * 100f else 0f
+        }
+
+        parsedSteps.add(
+            ParsedRecipeStep(
+                sequence = seq,
+                phase = phase,
+                duration = duration,
+                targetWater = targetWater,
+                waterRatio = waterRatio,
+                durationRatio = durationRatio,
+                instruction = instruction.trim()
+            )
+        )
+    }
+
     private fun phaseLabel(phase: BrewPhase): String = when (phase) {
         BrewPhase.BLOOM -> "闷蒸"
         BrewPhase.POUR -> "注水"
@@ -185,11 +238,51 @@ class RecipeFormatManager @Inject constructor() {
         else -> phase.name
     }
 
-    private fun calculateRatios(steps: List<RecipeStep>, totalWater: Int): List<Float> {
+    private fun calculateWaterRatios(steps: List<RecipeStep>, totalWater: Int): List<Float> {
         if (totalWater <= 0) return steps.map { 0f }
         return steps.map { step ->
             val ratio = step.targetWater.toFloat() / totalWater * 100f
             if (step.waterRatio > 0f) step.waterRatio else ratio
+        }
+    }
+
+    private fun calculateDurationRatios(steps: List<RecipeStep>, totalDuration: Int): List<Float> {
+        if (totalDuration <= 0) return steps.map { 0f }
+        return steps.map { step ->
+            val ratio = step.duration.toFloat() / totalDuration * 100f
+            if (step.durationRatio > 0f) step.durationRatio else ratio
+        }
+    }
+
+    fun recalculateSteps(
+        parsedSteps: List<ParsedRecipeStep>,
+        newCoffeeWeight: Float,
+        waterRatioStr: String,
+        originalTotalDuration: Int
+    ): List<RecipeStep> {
+        val ratioNum = waterRatioStr.replace("1:", "").toFloatOrNull() ?: 15f
+        val newTotalWater = (newCoffeeWeight * ratioNum).toInt()
+
+        val originalTotalWater = parsedSteps.sumOf { it.targetWater }
+        val scaleFactor = if (originalTotalWater > 0) newTotalWater.toFloat() / originalTotalWater else 1f
+        val newTotalDuration = (originalTotalDuration * scaleFactor).toInt()
+
+        return parsedSteps.map { parsed ->
+            val newWater = (newTotalWater * parsed.waterRatio / 100f).toInt()
+            val newDuration = if (parsed.durationRatio > 0f) {
+                (newTotalDuration * parsed.durationRatio / 100f).toInt()
+            } else {
+                (parsed.duration * scaleFactor).toInt()
+            }
+            RecipeStep(
+                sequence = parsed.sequence,
+                phase = parsed.phase,
+                duration = newDuration.coerceAtLeast(1),
+                targetWater = newWater.coerceAtLeast(1),
+                waterRatio = parsed.waterRatio,
+                durationRatio = parsed.durationRatio,
+                instruction = parsed.instruction
+            )
         }
     }
 
