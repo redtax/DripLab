@@ -40,6 +40,10 @@ interface RecipeDao {
     @Query("SELECT * FROM recipes ORDER BY createdAt DESC")
     fun getAllRecipesWithSteps(): Flow<List<RecipeWithSteps>>
 
+    @Transaction
+    @Query("SELECT * FROM recipes ORDER BY createdAt DESC")
+    suspend fun getAllRecipesWithStepsOnce(): List<RecipeWithSteps>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRecipe(recipe: RecipeEntity): Long
 
@@ -57,4 +61,16 @@ interface RecipeDao {
 
     @Query("DELETE FROM recipes WHERE id = :recipeId")
     suspend fun deleteRecipeById(recipeId: Long)
+
+    @Query("DELETE FROM recipe_steps WHERE recipeId IN (SELECT id FROM recipes WHERE isDefault = 1)")
+    suspend fun deleteAllPresetSteps()
+
+    @Query("DELETE FROM recipes WHERE isDefault = 1")
+    suspend fun deleteAllPresetRecipes()
+
+    @Transaction
+    suspend fun deleteAllPresets() {
+        deleteAllPresetSteps()
+        deleteAllPresetRecipes()
+    }
 }

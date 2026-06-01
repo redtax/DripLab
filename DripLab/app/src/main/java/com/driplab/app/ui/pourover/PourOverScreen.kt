@@ -833,6 +833,8 @@ private fun methodDisplayName(method: BrewMethod): String = when (method) {
     BrewMethod.POUR_OVER -> "手冲咖啡"
     BrewMethod.FRENCH_PRESS -> "法压壶"
     BrewMethod.AERO_PRESS -> "爱乐压"
+    BrewMethod.IMMERSION -> "浸泡"
+    BrewMethod.ESPRESSO -> "意式浓缩"
     BrewMethod.MOKA_POT -> "摩卡壶"
     BrewMethod.COLD_BREW -> "冷萃"
     BrewMethod.SIPHON -> "虹吸壶"

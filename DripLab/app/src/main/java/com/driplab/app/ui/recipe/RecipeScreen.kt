@@ -1,35 +1,43 @@
 package com.driplab.app.ui.recipe
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,112 +46,116 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavController
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.Recipe
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RecipeScreen(navController: NavController, viewModel: RecipeViewModel = hiltViewModel()) {
-    val state by viewModel.uiState.collectAsState()
+fun RecipeScreen(
+    method: BrewMethod = BrewMethod.POUR_OVER,
+    viewModel: RecipeViewModel = hiltViewModel(),
+    onBack: () -> Unit = {},
+    onEditRecipe: (Long) -> Unit = {},
+    onEditImported: (String) -> Unit = {}
+) {
+    val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    var showDeleteDialog by remember { mutableStateOf<Recipe?>(null) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importText by remember { mutableStateOf("") }
+
+    LaunchedEffect(state.navigationTarget) {
+        when (val target = state.navigationTarget) {
+            is RecipeNavigation.EditRecipe -> {
+                onEditRecipe(target.recipeId)
+                viewModel.clearNavigation()
+            }
+            is RecipeNavigation.EditImported -> {
+                val json = com.google.gson.Gson().toJson(target.recipe)
+                onEditImported(json)
+                viewModel.clearNavigation()
+            }
+            null -> {}
+        }
+    }
+
+    LaunchedEffect(state.exportText) {
+        state.exportText?.let { text ->
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("recipe", text))
+            Toast.makeText(context, "配方已复制到剪贴板", Toast.LENGTH_SHORT).show()
+            viewModel.clearExportText()
+        }
+    }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("配方库", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                actions = {
-                    IconButton(onClick = { viewModel.showImportDialog() }) {
-                        Icon(Icons.Default.FileUpload, contentDescription = "导入",
-                            tint = MaterialTheme.colorScheme.onPrimary)
+            CenterAlignedTopAppBar(
+                title = { Text("${methodLabel(method)}配方") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { navController.navigate("recipe_edit/0") },
-                containerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "新建配方",
-                    tint = MaterialTheme.colorScheme.onPrimary)
-            }
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = state.selectedMethod == null,
-                    onClick = { viewModel.filterByMethod(null) },
-                    label = { Text("全部") }
+                },
+                actions = {
+                    IconButton(onClick = { showImportDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "导入配方")
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
-                BrewMethod.entries.forEach { method ->
-                    FilterChip(
-                        selected = state.selectedMethod == method,
-                        onClick = { viewModel.filterByMethod(method) },
-                        label = { Text(method.displayName) }
-                    )
-                }
-            }
-
-            val filteredRecipes = viewModel.getFilteredRecipes()
-
-            if (filteredRecipes.isEmpty()) {
+            )
+        }
+    ) { padding ->
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (state.isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else if (state.recipes.isEmpty()) {
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        "暂无配方",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("暂无配方", style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "点击右下角 + 创建配方，或导入配方JSON",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text("点击右上角 + 导入配方",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        top = 8.dp, bottom = 88.dp
+                    )
                 ) {
-                    items(filteredRecipes, key = { it.id }) { recipe ->
+                    items(state.recipes, key = { it.id }) { recipe ->
                         RecipeCard(
                             recipe = recipe,
-                            onSelect = { viewModel.selectRecipeForBrewing(recipe) },
-                            onEdit = { navController.navigate("recipe_edit/${recipe.id}") },
-                            onDelete = { viewModel.deleteRecipe(recipe) },
-                            onExport = { viewModel.exportToClipboard(recipe) }
+                            onExport = { viewModel.exportRecipe(recipe) },
+                            onEdit = { viewModel.editRecipe(recipe) },
+                            onDelete = { showDeleteDialog = recipe }
                         )
                     }
                 }
@@ -151,154 +163,184 @@ fun RecipeScreen(navController: NavController, viewModel: RecipeViewModel = hilt
         }
     }
 
-    if (state.showImportDialog) {
-        ImportDialog(
-            importText = state.importText,
-            importResult = state.importResult,
-            onTextChange = { viewModel.updateImportText(it) },
-            onImport = { viewModel.importRecipe() },
-            onDismiss = { viewModel.dismissImportDialog() }
+    if (showDeleteDialog != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = null },
+            title = { Text("删除配方") },
+            text = { Text("确定要删除「${showDeleteDialog?.name}」吗？此操作无法撤销。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog?.let { viewModel.deleteRecipe(it) }
+                    showDeleteDialog = null
+                }) {
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = null }) {
+                    Text("取消")
+                }
+            }
         )
     }
 
-    if (state.showConfirmDialog && state.pendingRecipe != null) {
-        RecipeConfirmDialog(
-            recipe = state.pendingRecipe!!,
-            onConfirm = { viewModel.confirmRecipeSelection() },
-            onDismiss = { viewModel.dismissConfirmDialog() }
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text("导入配方") },
+            text = {
+                Column {
+                    Text("请粘贴滴落间Lab配方文本：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = importText,
+                        onValueChange = { importText = it },
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        placeholder = { Text("滴落间Lab配方\n---\n配方名: ...") },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (importText.isNotBlank()) {
+                        viewModel.importRecipe(importText.trim())
+                        showImportDialog = false
+                        importText = ""
+                    }
+                }) {
+                    Text("导入")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text("取消")
+                }
+            }
         )
     }
 }
 
 @Composable
-private fun RecipeConfirmDialog(
+private fun RecipeCard(
     recipe: Recipe,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
+    onExport: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("选择冲煮配方") },
-        text = {
-            Column {
-                Text("是否将「${recipe.name}」设置为当前冲煮配方？")
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "冲煮方式: ${recipe.method.displayName} | 粉量: ${recipe.coffeeWeight}g | 水温: ${recipe.temperature}°C",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "粉水比: ${recipe.waterRatio} | 共${recipe.steps.size}段注水",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "确认后将提取至当前冲煮方式，不跳转至冲煮界面",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text("确认") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
-    )
-}
-
-@Composable
-private fun RecipeCard(recipe: Recipe, onSelect: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, onExport: () -> Unit) {
-    val isPourOver = recipe.method == BrewMethod.POUR_OVER
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(recipe.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.height(4.dp))
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            recipe.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (recipe.isDefault) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            AssistChip(
+                                onClick = {},
+                                label = { Text("预设", fontSize = 10.sp) },
+                                modifier = Modifier.height(20.dp),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        "${recipe.coffeeWeight.toInt()}g · ${recipe.waterRatio} · ${recipe.temperature}°C · ${recipe.steps.size}段",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
                 Row {
-                    Text(recipe.method.displayName, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("${recipe.temperature}°C", style = MaterialTheme.typography.bodySmall)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("${recipe.steps.size}段", style = MaterialTheme.typography.bodySmall)
+                    if (recipe.isDefault) {
+                        IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Share, contentDescription = "导出", modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary)
+                        }
+                    } else {
+                        IconButton(onClick = onExport, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Share, contentDescription = "导出", modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = "编辑", modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.secondary)
+                        }
+                        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除", modifier = Modifier.size(20.dp),
+                                tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
                 }
             }
-            if (isPourOver) {
-                IconButton(onClick = onExport) {
-                    Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = "导出",
-                        tint = MaterialTheme.colorScheme.primary)
+
+            if (recipe.steps.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                recipe.steps.sortedBy { it.sequence }.forEach { step ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "${step.sequence}.",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.width(20.dp)
+                        )
+                        Text(
+                            "${phaseLabel(step.phase)} ${formatDuration(step.duration)} · ${step.targetWater}ml",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                 }
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "编辑",
-                        tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.error)
             }
         }
     }
 }
 
-@Composable
-private fun ImportDialog(
-    importText: String,
-    importResult: String?,
-    onTextChange: (String) -> Unit,
-    onImport: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("导入配方") },
-        text = {
-            Column {
-                Text(
-                    "粘贴配方JSON内容：",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = importText,
-                    onValueChange = onTextChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp),
-                    placeholder = { Text("{\"version\": \"1.0\", ...}") }
-                )
-                if (importResult != null) {
-                    Text(importResult, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onImport) {
-                Text("导入")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
+private fun phaseLabel(phase: com.driplab.app.domain.model.BrewPhase): String = when (phase) {
+    com.driplab.app.domain.model.BrewPhase.BLOOM -> "闷蒸"
+    com.driplab.app.domain.model.BrewPhase.POUR -> "注水"
+    com.driplab.app.domain.model.BrewPhase.WAIT -> "滴滤"
+}
+
+private fun formatDuration(seconds: Int): String {
+    if (seconds >= 60) {
+        val m = seconds / 60
+        val s = seconds % 60
+        return if (s > 0) "${m}分${s}秒" else "${m}分钟"
+    }
+    return "${seconds}秒"
+}
+
+private fun methodLabel(method: BrewMethod): String = when (method) {
+    BrewMethod.POUR_OVER -> "手冲"
+    BrewMethod.IMMERSION -> "浸泡"
+    BrewMethod.ESPRESSO -> "意式"
+    BrewMethod.AERO_PRESS -> "爱乐压"
+    BrewMethod.FRENCH_PRESS -> "法压"
+    BrewMethod.MOKA_POT -> "摩卡"
+    BrewMethod.COLD_BREW -> "冷萃"
+    BrewMethod.SIPHON -> "虹吸"
 }

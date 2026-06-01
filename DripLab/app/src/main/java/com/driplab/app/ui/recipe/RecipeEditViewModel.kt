@@ -1,277 +1,202 @@
 package com.driplab.app.ui.recipe
 
-import android.speech.tts.TextToSpeech
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.driplab.app.data.repository.RecipeRepositoryImpl
+import com.driplab.app.core.recipe.ImportResult
+import com.driplab.app.core.recipe.RecipeFormatManager
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
 import com.driplab.app.domain.model.RecipeStep
-import com.driplab.app.core.calculator.BrewCalculator
-import com.driplab.app.core.calculator.BrewCalculator.RatioPreset
+import com.driplab.app.domain.repository.RecipeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.util.Locale
 import javax.inject.Inject
 
-data class RecipeEditUiState(
-    val recipeId: Long = 0,
-    val name: String = "",
-    val coffeeWeight: Float = 15f,
-    val waterRatio: Int = 15,
-    val ratioLabel: String = "1:15",
-    val temperature: Int = 92,
-    val steps: List<EditableStep> = listOf(
-        EditableStep(phase = BrewPhase.BLOOM, duration = 30, targetWater = 45, instruction = ""),
-        EditableStep(phase = BrewPhase.POUR, duration = 35, targetWater = 70, instruction = ""),
-        EditableStep(phase = BrewPhase.WAIT, duration = 45, targetWater = 0, instruction = "")
-    ),
-    val ratioPresets: List<RatioPreset> = BrewCalculator.ratioPresets,
-    val selectedRatioPreset: Int = 1,
-    val isSaving: Boolean = false,
-    val saveSuccess: Boolean = false,
+data class RecipeEditState(
+    val recipe: Recipe = Recipe(method = BrewMethod.POUR_OVER),
+    val isEditing: Boolean = false,
     val isLoading: Boolean = false,
-    val isNew: Boolean = true
-)
-
-data class EditableStep(
-    val phase: BrewPhase = BrewPhase.POUR,
-    val duration: Int = 30,
-    val targetWater: Int = 0,
-    val instruction: String = ""
+    val isSaved: Boolean = false,
+    val exportText: String? = null,
+    val importResult: ImportResult? = null
 )
 
 @HiltViewModel
 class RecipeEditViewModel @Inject constructor(
-    private val recipeRepository: RecipeRepositoryImpl
+    private val recipeRepository: RecipeRepository,
+    private val formatManager: RecipeFormatManager
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(RecipeEditUiState())
-    val uiState: StateFlow<RecipeEditUiState> = _uiState.asStateFlow()
+    private val _state = MutableStateFlow(RecipeEditState())
+    val state: StateFlow<RecipeEditState> = _state.asStateFlow()
 
-    private var tts: TextToSpeech? = null
+    private val _events = MutableSharedFlow<RecipeEditEvent>()
+    val events = _events.asSharedFlow()
 
     fun loadRecipe(recipeId: Long) {
-        if (recipeId <= 0) return
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            _state.value = _state.value.copy(isLoading = true)
             val recipe = recipeRepository.getRecipeById(recipeId)
-            if (recipe != null && recipe.method == BrewMethod.POUR_OVER) {
-                val ratioFloat = recipe.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
-                val idx = _uiState.value.ratioPresets.indexOfFirst { it.ratio == ratioFloat }
-                _uiState.value = _uiState.value.copy(
-                    recipeId = recipe.id,
-                    name = recipe.name,
-                    coffeeWeight = recipe.coffeeWeight,
-                    waterRatio = ratioFloat.toInt(),
-                    ratioLabel = recipe.waterRatio,
-                    temperature = recipe.temperature,
-                    selectedRatioPreset = if (idx >= 0) idx else _uiState.value.ratioPresets.size - 1,
-                    steps = recipe.steps.map { step ->
-                        EditableStep(
-                            phase = step.phase,
-                            duration = step.duration,
-                            targetWater = step.targetWater,
-                            instruction = step.instruction
-                        )
-                    },
-                    isLoading = false,
-                    isNew = false
+            if (recipe != null) {
+                _state.value = _state.value.copy(
+                    recipe = recipe,
+                    isEditing = true,
+                    isLoading = false
                 )
             } else {
-                _uiState.value = _uiState.value.copy(isLoading = false)
+                _state.value = _state.value.copy(isLoading = false)
             }
         }
     }
 
-    fun initTts(tts: TextToSpeech) {
-        this.tts = tts
+    fun loadImportedRecipe(json: String) {
+        try {
+            val recipe = com.google.gson.Gson().fromJson(json, Recipe::class.java)
+            _state.value = _state.value.copy(
+                recipe = recipe.copy(id = 0, isDefault = false),
+                isEditing = false
+            )
+        } catch (_: Exception) {}
     }
 
     fun updateName(name: String) {
-        _uiState.value = _uiState.value.copy(name = name)
+        _state.value = _state.value.copy(
+            recipe = _state.value.recipe.copy(name = name)
+        )
+    }
+
+    fun updateMethod(method: BrewMethod) {
+        _state.value = _state.value.copy(
+            recipe = _state.value.recipe.copy(method = method)
+        )
     }
 
     fun updateCoffeeWeight(weight: Float) {
-        val state = _uiState.value
-        val ratio = state.waterRatio.toFloat()
-        val calculation = BrewCalculator.calculate(weight, ratio)
-        val originalWeight = state.coffeeWeight
-        val scale = if (originalWeight > 0f) weight / originalWeight else 1f
-
-        val newSteps = state.steps.map { step ->
-            step.copy(targetWater = (step.targetWater * scale).toInt())
-        }
-
-        _uiState.value = state.copy(
-            coffeeWeight = weight,
-            ratioLabel = calculation.ratioLabel,
-            steps = newSteps
+        _state.value = _state.value.copy(
+            recipe = _state.value.recipe.copy(coffeeWeight = weight)
         )
     }
 
-    fun adjustCoffeeUp() {
-        val newWeight = (_uiState.value.coffeeWeight + 0.5f).coerceIn(5f, 150f)
-        updateCoffeeWeight((newWeight * 10).toInt() / 10f)
-    }
-
-    fun adjustCoffeeDown() {
-        val newWeight = (_uiState.value.coffeeWeight - 0.5f).coerceIn(5f, 150f)
-        updateCoffeeWeight((newWeight * 10).toInt() / 10f)
-    }
-
-    fun selectRatioPreset(index: Int) {
-        val state = _uiState.value
-        val ratio = state.ratioPresets[index].ratio
-        val ratioInt = if (index == state.ratioPresets.size - 1) state.waterRatio else ratio.toInt()
-        _uiState.value = state.copy(
-            selectedRatioPreset = index,
-            waterRatio = ratioInt,
-            ratioLabel = "1:${ratioInt}"
-        )
-    }
-
-    fun updateCustomRatio(ratio: Int) {
-        _uiState.value = _uiState.value.copy(
-            waterRatio = ratio,
-            ratioLabel = "1:${ratio}"
+    fun updateWaterRatio(ratio: String) {
+        _state.value = _state.value.copy(
+            recipe = _state.value.recipe.copy(waterRatio = ratio)
         )
     }
 
     fun updateTemperature(temp: Int) {
-        _uiState.value = _uiState.value.copy(temperature = temp)
+        _state.value = _state.value.copy(
+            recipe = _state.value.recipe.copy(temperature = temp)
+        )
     }
 
-    fun adjustTempUp() {
-        val newTemp = (_uiState.value.temperature + 1).coerceIn(60, 100)
-        _uiState.value = _uiState.value.copy(temperature = newTemp)
-    }
-
-    fun adjustTempDown() {
-        val newTemp = (_uiState.value.temperature - 1).coerceIn(60, 100)
-        _uiState.value = _uiState.value.copy(temperature = newTemp)
-    }
-
-    fun updateStep(index: Int, step: EditableStep) {
-        val steps = _uiState.value.steps.toMutableList()
+    fun updateStep(index: Int, step: RecipeStep) {
+        val steps = _state.value.recipe.steps.toMutableList()
         if (index in steps.indices) {
             steps[index] = step
-            _uiState.value = _uiState.value.copy(steps = steps)
-        }
-    }
-
-    fun updateStepPhase(index: Int, phase: BrewPhase) {
-        val steps = _uiState.value.steps.toMutableList()
-        if (index in steps.indices) {
-            steps[index] = steps[index].copy(phase = phase)
-            _uiState.value = _uiState.value.copy(steps = steps)
-        }
-    }
-
-    fun updateStepDuration(index: Int, duration: Int) {
-        val steps = _uiState.value.steps.toMutableList()
-        if (index in steps.indices) {
-            steps[index] = steps[index].copy(duration = duration)
-            _uiState.value = _uiState.value.copy(steps = steps)
-        }
-    }
-
-    fun updateStepWater(index: Int, water: Int) {
-        val steps = _uiState.value.steps.toMutableList()
-        if (index in steps.indices) {
-            steps[index] = steps[index].copy(targetWater = water)
-            _uiState.value = _uiState.value.copy(steps = steps)
-        }
-    }
-
-    fun updateStepInstruction(index: Int, instruction: String) {
-        val steps = _uiState.value.steps.toMutableList()
-        if (index in steps.indices) {
-            steps[index] = steps[index].copy(instruction = instruction)
-            _uiState.value = _uiState.value.copy(steps = steps)
+            _state.value = _state.value.copy(
+                recipe = _state.value.recipe.copy(steps = steps)
+            )
         }
     }
 
     fun addStep() {
-        val steps = _uiState.value.steps.toMutableList()
-        steps.add(EditableStep(phase = BrewPhase.POUR, duration = 30, targetWater = 50, instruction = ""))
-        _uiState.value = _uiState.value.copy(steps = steps)
+        val steps = _state.value.recipe.steps.toMutableList()
+        steps.add(
+            RecipeStep(
+                sequence = steps.size + 1,
+                phase = BrewPhase.POUR,
+                duration = 30,
+                targetWater = 50,
+                instruction = ""
+            )
+        )
+        _state.value = _state.value.copy(
+            recipe = _state.value.recipe.copy(steps = steps)
+        )
     }
 
     fun removeStep(index: Int) {
-        val steps = _uiState.value.steps.toMutableList()
-        if (steps.size > 1 && index in steps.indices) {
+        val steps = _state.value.recipe.steps.toMutableList()
+        if (index in steps.indices) {
             steps.removeAt(index)
-            _uiState.value = _uiState.value.copy(steps = steps)
-        }
-    }
-
-    fun moveStepUp(index: Int) {
-        val steps = _uiState.value.steps.toMutableList()
-        if (index > 0) {
-            val temp = steps[index]
-            steps[index] = steps[index - 1]
-            steps[index - 1] = temp
-            _uiState.value = _uiState.value.copy(steps = steps)
-        }
-    }
-
-    fun moveStepDown(index: Int) {
-        val steps = _uiState.value.steps.toMutableList()
-        if (index < steps.size - 1) {
-            val temp = steps[index]
-            steps[index] = steps[index + 1]
-            steps[index + 1] = temp
-            _uiState.value = _uiState.value.copy(steps = steps)
-        }
-    }
-
-    fun previewInstruction(index: Int) {
-        val steps = _uiState.value.steps
-        if (index in steps.indices && steps[index].instruction.isNotBlank()) {
-            tts?.speak(steps[index].instruction, TextToSpeech.QUEUE_FLUSH, null, null)
+            steps.forEachIndexed { i, step ->
+                steps[i] = step.copy(sequence = i + 1)
+            }
+            _state.value = _state.value.copy(
+                recipe = _state.value.recipe.copy(steps = steps)
+            )
         }
     }
 
     fun saveRecipe() {
-        val state = _uiState.value
-        if (state.name.isBlank()) return
-
-        _uiState.value = state.copy(isSaving = true)
-
         viewModelScope.launch {
-            val recipe = Recipe(
-                id = state.recipeId,
-                name = state.name,
-                method = BrewMethod.POUR_OVER,
-                coffeeWeight = state.coffeeWeight,
-                waterRatio = state.ratioLabel,
-                temperature = state.temperature,
-                steps = state.steps.mapIndexed { index, step ->
-                    RecipeStep(
-                        sequence = index + 1,
-                        phase = step.phase,
-                        duration = step.duration,
-                        targetWater = step.targetWater,
-                        instruction = step.instruction
-                    )
-                }
-            )
+            val current = _state.value.recipe
+            val ratioNum = current.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
+            val totalWater = current.coffeeWeight * ratioNum
+            val stepsWithRatio = current.steps.map { step ->
+                val ratio = if (totalWater > 0f) step.targetWater.toFloat() / totalWater * 100f else 0f
+                step.copy(waterRatio = ratio)
+            }
+            val recipe = current.copy(steps = stepsWithRatio)
             recipeRepository.saveRecipe(recipe)
-            _uiState.value = _uiState.value.copy(isSaving = false, saveSuccess = true)
+            _state.value = _state.value.copy(isSaved = true)
         }
     }
 
-    fun dismissSaveSuccess() {
-        _uiState.value = _uiState.value.copy(saveSuccess = false)
+    fun exportRecipe() {
+        viewModelScope.launch {
+            val current = _state.value.recipe
+            val ratioNum = current.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
+            val totalWater = current.coffeeWeight * ratioNum
+            val stepsWithRatio = current.steps.map { step ->
+                val ratio = if (totalWater > 0f) step.targetWater.toFloat() / totalWater * 100f else 0f
+                step.copy(waterRatio = ratio)
+            }
+            val text = formatManager.exportRecipe(
+                current.copy(steps = stepsWithRatio),
+                stepsWithRatio
+            )
+            _state.value = _state.value.copy(exportText = text)
+        }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        tts?.shutdown()
+    fun clearExportText() {
+        _state.value = _state.value.copy(exportText = null)
     }
+
+    fun importRecipeText(text: String) {
+        val result = formatManager.parseRecipe(text)
+        if (result.success && result.recipe != null) {
+            val steps = result.steps.map { step ->
+                RecipeStep(
+                    sequence = step.sequence,
+                    phase = step.phase,
+                    duration = step.duration,
+                    targetWater = step.targetWater,
+                    waterRatio = step.waterRatio,
+                    instruction = step.instruction
+                )
+            }
+            _state.value = _state.value.copy(
+                recipe = result.recipe.copy(steps = steps, isDefault = false),
+                importResult = result
+            )
+        } else {
+            _state.value = _state.value.copy(importResult = result)
+        }
+    }
+
+    fun clearImportResult() {
+        _state.value = _state.value.copy(importResult = null)
+    }
+}
+
+sealed class RecipeEditEvent {
+    data object NavigateBack : RecipeEditEvent()
 }

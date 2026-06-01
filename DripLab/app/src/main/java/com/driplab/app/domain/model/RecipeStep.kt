@@ -7,5 +7,6 @@ data class RecipeStep(
     val phase: BrewPhase,
     val duration: Int,
     val targetWater: Int = 0,
+    val waterRatio: Float = 0f,
     val instruction: String = ""
 )

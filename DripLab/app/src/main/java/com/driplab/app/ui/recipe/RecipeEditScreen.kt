@@ -3,17 +3,11 @@ package com.driplab.app.ui.recipe
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.speech.tts.TextToSpeech
 import android.widget.Toast
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,40 +16,37 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Save
-import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,264 +58,270 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewPhase
-import com.google.gson.GsonBuilder
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecipeEditScreen(
     recipeId: Long = 0,
-    onBack: () -> Unit,
-    viewModel: RecipeEditViewModel = hiltViewModel()
+    importedJson: String? = null,
+    viewModel: RecipeEditViewModel = hiltViewModel(),
+    onBack: () -> Unit = {}
 ) {
-    val state by viewModel.uiState.collectAsState()
+    val state by viewModel.state.collectAsState()
     val context = LocalContext.current
-
-    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importText by remember { mutableStateOf("") }
 
     LaunchedEffect(recipeId) {
-        if (recipeId > 0) {
-            viewModel.loadRecipe(recipeId)
+        if (recipeId > 0) viewModel.loadRecipe(recipeId)
+    }
+
+    LaunchedEffect(importedJson) {
+        if (!importedJson.isNullOrBlank()) viewModel.loadImportedRecipe(importedJson)
+    }
+
+    LaunchedEffect(state.isSaved) {
+        if (state.isSaved) onBack()
+    }
+
+    LaunchedEffect(state.exportText) {
+        state.exportText?.let { text ->
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("recipe", text))
+            Toast.makeText(context, "配方已复制到剪贴板", Toast.LENGTH_SHORT).show()
+            viewModel.clearExportText()
         }
-    }
-
-    DisposableEffect(context) {
-        val instance = TextToSpeech(context) { _ -> }
-        instance.language = Locale.CHINESE
-        tts = instance
-        viewModel.initTts(instance)
-        onDispose { instance.shutdown() }
-    }
-
-    if (state.saveSuccess) {
-        Toast.makeText(context, "配方已保存", Toast.LENGTH_SHORT).show()
-        viewModel.dismissSaveSuccess()
-        onBack()
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        if (state.isNew) "新建手冲配方" else "编辑手冲配方",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+            CenterAlignedTopAppBar(
+                title = { Text(if (state.isEditing) "编辑配方" else "新建配方") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回",
-                            tint = MaterialTheme.colorScheme.onPrimary)
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    IconButton(
-                        onClick = { viewModel.saveRecipe() },
-                        enabled = !state.isSaving && state.name.isNotBlank()
-                    ) {
+                    IconButton(onClick = { showImportDialog = true }) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "导入",
+                            tint = MaterialTheme.colorScheme.secondary)
+                    }
+                    IconButton(onClick = { viewModel.exportRecipe() }) {
+                        Icon(Icons.Default.FileDownload, contentDescription = "导出",
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = { viewModel.saveRecipe() }) {
                         Icon(Icons.Default.Save, contentDescription = "保存",
-                            tint = MaterialTheme.colorScheme.onPrimary)
+                            tint = MaterialTheme.colorScheme.primary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         }
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            item { Spacer(modifier = Modifier.height(4.dp)) }
+    ) { padding ->
+        if (state.isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(padding),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item { BasicInfoSection(state, viewModel) }
+                item { StepsSection(state, viewModel) }
+                item { Spacer(modifier = Modifier.height(80.dp)) }
+            }
+        }
+    }
 
-            item {
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            title = { Text("导入配方") },
+            text = {
+                Column {
+                    Text("请粘贴滴落间Lab配方文本：",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = importText,
+                        onValueChange = { importText = it },
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        placeholder = { Text("滴落间Lab配方\n---\n配方名: ...") },
+                        textStyle = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (importText.isNotBlank()) {
+                        viewModel.importRecipeText(importText.trim())
+                        showImportDialog = false
+                        importText = ""
+                    }
+                }) {
+                    Text("导入并编辑")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    state.importResult?.let { result ->
+        if (!result.success) {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearImportResult() },
+                title = { Text("导入失败") },
+                text = {
+                    Column {
+                        result.errors.forEach { error ->
+                            Text("• $error",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.clearImportResult() }) {
+                        Text("确定")
+                    }
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BasicInfoSection(state: RecipeEditState, viewModel: RecipeEditViewModel) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text("基础信息", fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = state.recipe.name,
+                onValueChange = { viewModel.updateName(it) },
+                label = { Text("配方名称") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            var methodExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = methodExpanded,
+                onExpandedChange = { methodExpanded = it }
+            ) {
                 OutlinedTextField(
-                    value = state.name,
-                    onValueChange = { viewModel.updateName(it) },
-                    label = { Text("配方名称") },
-                    placeholder = { Text("例如：我的专属手冲") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    value = methodLabel(state.recipe.method),
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("冲煮方式") },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = methodExpanded) }
+                )
+                ExposedDropdownMenu(
+                    expanded = methodExpanded,
+                    onDismissRequest = { methodExpanded = false }
+                ) {
+                    listOf(BrewMethod.POUR_OVER, BrewMethod.IMMERSION, BrewMethod.ESPRESSO, BrewMethod.AERO_PRESS).forEach { method ->
+                        DropdownMenuItem(
+                            text = { Text(methodLabel(method)) },
+                            onClick = {
+                                viewModel.updateMethod(method)
+                                methodExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = if (state.recipe.coffeeWeight > 0f) state.recipe.coffeeWeight.toInt().toString() else "",
+                    onValueChange = { viewModel.updateCoffeeWeight(it.toFloatOrNull() ?: 0f) },
+                    label = { Text("咖啡粉量(g)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedTextField(
+                    value = state.recipe.waterRatio,
+                    onValueChange = { viewModel.updateWaterRatio(it) },
+                    label = { Text("粉水比") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    placeholder = { Text("1:15") }
                 )
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = if (state.recipe.temperature > 0) state.recipe.temperature.toString() else "",
+                onValueChange = { viewModel.updateTemperature(it.toIntOrNull() ?: 0) },
+                label = { Text("水温(°C)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+        }
+    }
+}
 
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("咖啡粉量", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), CircleShape)
-                                    .clickable { viewModel.adjustCoffeeDown() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "减少",
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }
-                            Text(
-                                text = "${"%.1f".format(Locale.getDefault(), state.coffeeWeight)}g",
-                                fontSize = 26.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(horizontal = 20.dp)
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), CircleShape)
-                                    .clickable { viewModel.adjustCoffeeUp() },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "增加",
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StepsSection(state: RecipeEditState, viewModel: RecipeEditViewModel) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("冲煮步骤", fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall)
+                OutlinedButton(onClick = { viewModel.addStep() },
+                    modifier = Modifier.height(32.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("添加步骤", fontSize = 12.sp)
                 }
             }
 
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text("粉水比", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            state.ratioPresets.forEachIndexed { index, preset ->
-                                Button(
-                                    onClick = { viewModel.selectRatioPreset(index) },
-                                    modifier = Modifier.weight(1f).height(36.dp),
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (state.selectedRatioPreset == index && index < state.ratioPresets.size - 1) {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        }
-                                    )
-                                ) {
-                                    Text(preset.label, fontSize = 11.sp, maxLines = 1)
-                                }
-                            }
-                        }
-                        if (state.selectedRatioPreset == state.ratioPresets.size - 1) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            var customRatio by remember(state.waterRatio) { mutableFloatStateOf(state.waterRatio.toFloat()) }
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                                Text("1:", style = MaterialTheme.typography.bodyMedium)
-                                Slider(
-                                    value = customRatio,
-                                    onValueChange = { customRatio = it },
-                                    onValueChangeFinished = { viewModel.updateCustomRatio(customRatio.toInt()) },
-                                    valueRange = 8f..25f,
-                                    modifier = Modifier.weight(1f),
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = MaterialTheme.colorScheme.primary,
-                                        activeTrackColor = MaterialTheme.colorScheme.primary
-                                    )
-                                )
-                                Text("${customRatio.toInt()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)
-                    ) {
-                        Box(
-                            modifier = Modifier.weight(7f).fillMaxHeight().padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "${state.temperature}°C",
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text("水温", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                        Box(
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), CircleShape)
-                                        .clickable { viewModel.adjustTempUp() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "升温",
-                                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                                }
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), CircleShape)
-                                        .clickable { viewModel.adjustTempDown() },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "降温",
-                                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            val ratioNum = state.recipe.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
+            val totalWater = state.recipe.coffeeWeight * ratioNum
 
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("分段策略", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text("共${state.steps.size}段", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-
-            itemsIndexed(state.steps) { index, step ->
+            itemsIndexed(state.recipe.steps) { index, step ->
                 Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.fillMaxWidth()
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    )
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(
@@ -332,174 +329,106 @@ fun RecipeEditScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("第${index + 1}段", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("步骤 ${step.sequence}",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium)
                             Row {
-                                IconButton(onClick = { viewModel.moveStepUp(index) },
-                                    enabled = index > 0, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "上移",
-                                        modifier = Modifier.size(20.dp))
+                                if (totalWater > 0f) {
+                                    val ratio = step.targetWater.toFloat() / totalWater * 100f
+                                    Text("${String.format("%.0f", ratio)}%",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.primary)
+                                    Spacer(modifier = Modifier.width(8.dp))
                                 }
-                                IconButton(onClick = { viewModel.moveStepDown(index) },
-                                    enabled = index < state.steps.size - 1, modifier = Modifier.size(32.dp)) {
-                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "下移",
-                                        modifier = Modifier.size(20.dp))
-                                }
-                                if (state.steps.size > 1) {
-                                    IconButton(onClick = { viewModel.removeStep(index) },
-                                        modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.Delete, contentDescription = "删除",
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MaterialTheme.colorScheme.error)
-                                    }
+                                IconButton(
+                                    onClick = { viewModel.removeStep(index) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "删除",
+                                        modifier = Modifier.size(16.dp),
+                                        tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
 
                         var phaseExpanded by remember { mutableStateOf(false) }
-                        Box {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { phaseExpanded = true }
-                                    .background(
-                                        MaterialTheme.colorScheme.surfaceVariant,
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(phaseDisplayName(step.phase))
-                                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
-                            }
-                            DropdownMenu(
+                        ExposedDropdownMenuBox(
+                            expanded = phaseExpanded,
+                            onExpandedChange = { phaseExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = phaseLabel(step.phase),
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("阶段") },
+                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = phaseExpanded) }
+                            )
+                            ExposedDropdownMenu(
                                 expanded = phaseExpanded,
                                 onDismissRequest = { phaseExpanded = false }
                             ) {
-                                val handPourPhases = listOf(BrewPhase.BLOOM, BrewPhase.POUR, BrewPhase.WAIT)
-                                handPourPhases.forEach { phase ->
+                                listOf(BrewPhase.BLOOM, BrewPhase.POUR, BrewPhase.WAIT).forEach { phase ->
                                     DropdownMenuItem(
-                                        text = { Text(phaseDisplayName(phase)) },
+                                        text = { Text(phaseLabel(phase)) },
                                         onClick = {
-                                            viewModel.updateStepPhase(index, phase)
+                                            viewModel.updateStep(index, step.copy(phase = phase))
                                             phaseExpanded = false
                                         }
                                     )
                                 }
                             }
                         }
-
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+
+                        Row(modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(
-                                value = if (step.duration > 0) step.duration.toString() else "",
-                                onValueChange = { v -> viewModel.updateStepDuration(index, v.filter { it.isDigit() }.toIntOrNull() ?: 0) },
+                                value = step.duration.toString(),
+                                onValueChange = { viewModel.updateStep(index, step.copy(duration = it.toIntOrNull() ?: 0)) },
                                 label = { Text("时长(秒)") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
-                                singleLine = true
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
+                            Spacer(modifier = Modifier.width(8.dp))
                             OutlinedTextField(
                                 value = if (step.targetWater > 0) step.targetWater.toString() else "",
-                                onValueChange = { v -> viewModel.updateStepWater(index, v.filter { it.isDigit() }.toIntOrNull() ?: 0) },
+                                onValueChange = { viewModel.updateStep(index, step.copy(targetWater = it.toIntOrNull() ?: 0)) },
                                 label = { Text("注水量(ml)") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 modifier = Modifier.weight(1f),
-                                singleLine = true
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                             )
                         }
-
                         Spacer(modifier = Modifier.height(8.dp))
-                        Row(
+                        OutlinedTextField(
+                            value = step.instruction,
+                            onValueChange = { viewModel.updateStep(index, step.copy(instruction = it)) },
+                            label = { Text("语音指令") },
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            OutlinedTextField(
-                                value = step.instruction,
-                                onValueChange = { viewModel.updateStepInstruction(index, it) },
-                                label = { Text("语音提示文本") },
-                                placeholder = { Text("例如：注入45g水，中心画圈，闷蒸开始") },
-                                modifier = Modifier.weight(1f),
-                                maxLines = 3
-                            )
-                            IconButton(
-                                onClick = { viewModel.previewInstruction(index) },
-                                modifier = Modifier.padding(top = 8.dp)
-                            ) {
-                                Icon(Icons.Default.PlayArrow, contentDescription = "预览语音",
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
+                            maxLines = 2
+                        )
                     }
                 }
             }
-
-            item {
-                Button(
-                    onClick = { viewModel.addStep() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("添加分段")
-                }
-            }
-
-            item {
-                Button(
-                    onClick = {
-                        val gson = GsonBuilder().setPrettyPrinting().create()
-                        val recipeDto = com.driplab.app.data.repository.RecipeRepositoryImpl.RecipeDto(
-                            name = state.name,
-                            method = "POUR_OVER",
-                            coffeeWeight = state.coffeeWeight,
-                            waterRatio = state.ratioLabel,
-                            temperature = state.temperature,
-                            steps = state.steps.map { step ->
-                                com.driplab.app.data.repository.RecipeRepositoryImpl.StepDto(
-                                    phase = step.phase.name,
-                                    duration = step.duration,
-                                    targetWater = step.targetWater,
-                                    instruction = step.instruction.ifBlank { null }
-                                )
-                            }
-                        )
-                        val json = gson.toJson(ExportWrapper(
-                            version = "1.0",
-                            exportDate = System.currentTimeMillis(),
-                            recipes = listOf(recipeDto)
-                        ))
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("recipe", json))
-                        Toast.makeText(context, "配方JSON已复制到剪贴板", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = state.name.isNotBlank()
-                ) {
-                    Text("导出配方JSON")
-                }
-            }
-
-            item { Spacer(modifier = Modifier.height(16.dp)) }
         }
     }
 }
 
-private data class ExportWrapper(
-    val version: String,
-    val exportDate: Long,
-    val recipes: List<com.driplab.app.data.repository.RecipeRepositoryImpl.RecipeDto>
-)
+private fun methodLabel(method: BrewMethod): String = when (method) {
+    BrewMethod.POUR_OVER -> "手冲"
+    BrewMethod.IMMERSION -> "浸泡"
+    BrewMethod.ESPRESSO -> "意式"
+    BrewMethod.AERO_PRESS -> "爱乐压"
+    BrewMethod.FRENCH_PRESS -> "法压"
+    BrewMethod.MOKA_POT -> "摩卡"
+    BrewMethod.COLD_BREW -> "冷萃"
+    BrewMethod.SIPHON -> "虹吸"
+}
 
-private fun phaseDisplayName(phase: BrewPhase): String = when (phase) {
+private fun phaseLabel(phase: BrewPhase): String = when (phase) {
     BrewPhase.BLOOM -> "闷蒸"
     BrewPhase.POUR -> "注水"
-    BrewPhase.WAIT -> "等待/滴滤"
-    else -> phase.name
+    BrewPhase.WAIT -> "滴滤"
 }

@@ -1,7 +1,6 @@
 package com.driplab.app.data
 
 import android.content.Context
-import androidx.room.Room
 import com.driplab.app.core.database.DripLabDatabase
 import com.driplab.app.core.database.entity.RecipeEntity
 import com.driplab.app.core.database.entity.RecipeStepEntity
@@ -19,9 +18,7 @@ class PresetRecipeInitializer @Inject constructor(
     fun initialize(database: DripLabDatabase) {
         CoroutineScope(Dispatchers.IO).launch {
             val dao = database.recipeDao()
-            val existingPresets = dao.getDefaultRecipesWithSteps("POUR_OVER")
-            if (existingPresets.isNotEmpty()) return@launch
-
+            dao.deleteAllPresets()
             val presets = listOf(
                 createOnePour(),
                 createThreeStage(),
@@ -29,12 +26,24 @@ class PresetRecipeInitializer @Inject constructor(
                 createKasuya46(),
                 createWangCeFourStage()
             )
-
             presets.forEach { (recipe, steps) ->
                 val recipeId = dao.insertRecipe(recipe)
-                dao.insertSteps(steps.map { it.copy(recipeId = recipeId) })
+                val stepsWithRatio = steps.map { step ->
+                    step.copy(
+                        recipeId = recipeId,
+                        waterRatio = calculateWaterRatio(step.targetWater, recipe)
+                    )
+                }
+                dao.insertSteps(stepsWithRatio)
             }
         }
+    }
+
+    private fun calculateWaterRatio(targetWater: Int, recipe: RecipeEntity): Float {
+        val ratioNum = recipe.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
+        val totalWater = recipe.coffeeWeight * ratioNum
+        if (totalWater <= 0f) return 0f
+        return (targetWater.toFloat() / totalWater * 100f)
     }
 
     private fun createOnePour(): Pair<RecipeEntity, List<RecipeStepEntity>> {
@@ -97,7 +106,7 @@ class PresetRecipeInitializer @Inject constructor(
             RecipeStepEntity(recipeId = 0, sequence = 2, phase = "POUR", duration = 45, targetWater = 45, instruction = "第二段注水，注入45g水，这决定了咖啡的甜度表现"),
             RecipeStepEntity(recipeId = 0, sequence = 3, phase = "POUR", duration = 45, targetWater = 30, instruction = "第三段注水，注入30g水，决定咖啡的口感强度"),
             RecipeStepEntity(recipeId = 0, sequence = 4, phase = "POUR", duration = 45, targetWater = 30, instruction = "第四段注水，注入30g水，后段低温注水，减少杂味"),
-            RecipeStepEntity(recipeId = 0, sequence = 5, phase = "WAIT", duration = 45, targetWater = 75, instruction = "最后一段注水，注入75g水，等待咖啡液滴滤完成")
+            RecipeStepEntity(recipeId = 0, sequence = 5, phase = "WAIT", duration = 45, targetWater = 75, instruction = "最后一段注入75g水，等待咖啡液滴滤完成")
         )
     }
 

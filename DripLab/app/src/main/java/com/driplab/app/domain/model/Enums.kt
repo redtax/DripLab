@@ -4,6 +4,8 @@ enum class BrewMethod(val displayName: String, val iconName: String) {
     POUR_OVER("手冲咖啡", "coffee"),
     FRENCH_PRESS("法压壶", "coffee_maker"),
     AERO_PRESS("爱乐压", "espresso"),
+    IMMERSION("浸泡", "water_drop"),
+    ESPRESSO("意式浓缩", "espresso_maker"),
     MOKA_POT("摩卡壶", "kettle"),
     COLD_BREW("冷萃", "ac_unit"),
     SIPHON("虹吸壶", "science")

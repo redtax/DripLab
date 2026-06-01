@@ -33,7 +33,7 @@ object AppModule {
             context,
             DripLabDatabase::class.java,
             "driplab.db"
-        ).fallbackToDestructiveMigration().build()
+        ).addMigrations(DripLabDatabase.MIGRATION_4_5).build()
         presetInitializer.initialize(db)
         return db
     }

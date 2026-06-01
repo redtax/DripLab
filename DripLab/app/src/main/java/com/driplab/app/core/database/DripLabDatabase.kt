@@ -2,6 +2,8 @@ package com.driplab.app.core.database
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.driplab.app.core.database.dao.BrewNoteDao
 import com.driplab.app.core.database.dao.RecipeDao
 import com.driplab.app.core.database.entity.BrewNoteEntity
@@ -14,10 +16,18 @@ import com.driplab.app.core.database.entity.RecipeStepEntity
         RecipeStepEntity::class,
         BrewNoteEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class DripLabDatabase : RoomDatabase() {
     abstract fun recipeDao(): RecipeDao
     abstract fun brewNoteDao(): BrewNoteDao
+
+    companion object {
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE recipe_steps ADD COLUMN waterRatio REAL NOT NULL DEFAULT 0")
+            }
+        }
+    }
 }

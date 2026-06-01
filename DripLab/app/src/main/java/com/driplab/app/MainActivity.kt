@@ -1,5 +1,6 @@
 package com.driplab.app
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,11 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavType
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.driplab.app.core.theme.DripLabTheme
 import com.driplab.app.core.theme.ThemeManager
 import com.driplab.app.ui.home.HomeScreen
@@ -84,11 +87,25 @@ fun DripLabApp() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) { HomeScreen(navController) }
-            composable(Screen.Recipe.route) { RecipeScreen(navController) }
-            composable("recipe_edit/{recipeId}") { backStackEntry ->
-                val recipeId = backStackEntry.arguments?.getString("recipeId")?.toLongOrNull() ?: 0L
+            composable(Screen.Recipe.route) {
+                RecipeScreen(
+                    onBack = { navController.popBackStack() },
+                    onEditRecipe = { recipeId -> navController.navigate("recipe_edit/$recipeId") },
+                    onEditImported = { json -> navController.navigate("recipe_edit/0?importedJson=${Uri.encode(json)}") }
+                )
+            }
+            composable(
+                "recipe_edit/{recipeId}?importedJson={importedJson}",
+                arguments = listOf(
+                    navArgument("recipeId") { type = NavType.LongType; defaultValue = 0L },
+                    navArgument("importedJson") { type = NavType.StringType; nullable = true; defaultValue = null }
+                )
+            ) { backStackEntry ->
+                val recipeId = backStackEntry.arguments?.getLong("recipeId") ?: 0L
+                val importedJson = backStackEntry.arguments?.getString("importedJson")
                 RecipeEditScreen(
                     recipeId = recipeId,
+                    importedJson = importedJson,
                     onBack = { navController.popBackStack() }
                 )
             }
