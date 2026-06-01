@@ -93,6 +93,7 @@ class RecipeBackupManager @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Backup failed: ${e.message}")
         }
+        Unit
     }
 
     suspend fun restoreTo(recipeDao: RecipeDao) = withContext(Dispatchers.IO) {
@@ -129,6 +130,7 @@ class RecipeBackupManager @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Restore failed: ${e.message}")
         }
+        Unit
     }
 
     fun getBackupSettings(): BackupSettings? {

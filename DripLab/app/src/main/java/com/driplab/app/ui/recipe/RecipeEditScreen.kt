@@ -315,7 +315,7 @@ private fun StepsSection(state: RecipeEditState, viewModel: RecipeEditViewModel)
             val ratioNum = state.recipe.waterRatio.replace("1:", "").toFloatOrNull() ?: 15f
             val totalWater = state.recipe.coffeeWeight * ratioNum
 
-            itemsIndexed(state.recipe.steps) { index, step ->
+            state.recipe.steps.forEachIndexed { index, step ->
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     shape = RoundedCornerShape(12.dp),
@@ -385,7 +385,7 @@ private fun StepsSection(state: RecipeEditState, viewModel: RecipeEditViewModel)
                         Row(modifier = Modifier.fillMaxWidth()) {
                             OutlinedTextField(
                                 value = step.duration.toString(),
-                                onValueChange = { viewModel.updateStep(index, step.copy(duration = it.toIntOrNull() ?: 0)) },
+                                onValueChange = { v -> viewModel.updateStep(index, step.copy(duration = v.toIntOrNull() ?: 0)) },
                                 label = { Text("时长(秒)") },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
@@ -394,7 +394,7 @@ private fun StepsSection(state: RecipeEditState, viewModel: RecipeEditViewModel)
                             Spacer(modifier = Modifier.width(8.dp))
                             OutlinedTextField(
                                 value = if (step.targetWater > 0) step.targetWater.toString() else "",
-                                onValueChange = { viewModel.updateStep(index, step.copy(targetWater = it.toIntOrNull() ?: 0)) },
+                                onValueChange = { v -> viewModel.updateStep(index, step.copy(targetWater = v.toIntOrNull() ?: 0)) },
                                 label = { Text("注水量(ml)") },
                                 modifier = Modifier.weight(1f),
                                 singleLine = true,
@@ -404,7 +404,7 @@ private fun StepsSection(state: RecipeEditState, viewModel: RecipeEditViewModel)
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = step.instruction,
-                            onValueChange = { viewModel.updateStep(index, step.copy(instruction = it)) },
+                            onValueChange = { v -> viewModel.updateStep(index, step.copy(instruction = v)) },
                             label = { Text("语音指令") },
                             modifier = Modifier.fillMaxWidth(),
                             maxLines = 2
@@ -431,4 +431,5 @@ private fun phaseLabel(phase: BrewPhase): String = when (phase) {
     BrewPhase.BLOOM -> "闷蒸"
     BrewPhase.POUR -> "注水"
     BrewPhase.WAIT -> "滴滤"
+    else -> phase.name
 }

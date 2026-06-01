@@ -323,6 +323,7 @@ private fun phaseLabel(phase: com.driplab.app.domain.model.BrewPhase): String = 
     com.driplab.app.domain.model.BrewPhase.BLOOM -> "闷蒸"
     com.driplab.app.domain.model.BrewPhase.POUR -> "注水"
     com.driplab.app.domain.model.BrewPhase.WAIT -> "滴滤"
+    else -> phase.name
 }
 
 private fun formatDuration(seconds: Int): String {

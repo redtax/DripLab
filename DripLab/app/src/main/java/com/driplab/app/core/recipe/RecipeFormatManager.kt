@@ -182,6 +182,7 @@ class RecipeFormatManager @Inject constructor() {
         BrewPhase.BLOOM -> "闷蒸"
         BrewPhase.POUR -> "注水"
         BrewPhase.WAIT -> "等待"
+        else -> phase.name
     }
 
     private fun calculateRatios(steps: List<RecipeStep>, totalWater: Int): List<Float> {

@@ -19,7 +19,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class RecipeEditState(
-    val recipe: Recipe = Recipe(method = BrewMethod.POUR_OVER),
+    val recipe: Recipe = Recipe(
+        name = "",
+        method = BrewMethod.POUR_OVER,
+        coffeeWeight = 15f,
+        waterRatio = "1:15",
+        temperature = 92
+    ),
     val isEditing: Boolean = false,
     val isLoading: Boolean = false,
     val isSaved: Boolean = false,
