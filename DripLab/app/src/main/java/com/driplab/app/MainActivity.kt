@@ -86,7 +86,19 @@ fun DripLabApp() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen(navController) }
+            composable(Screen.Home.route) {
+                        HomeScreen(
+                            onNavigateToBrew = {
+                                navController.navigate(Screen.Brew.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        )
+                    }
             composable(Screen.Recipe.route) {
                 RecipeScreen(
                     onBack = { navController.popBackStack() },
