@@ -16,7 +16,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -69,11 +68,11 @@ fun DripLabApp() {
                         selected = currentRoute == screen.route,
                         onClick = {
                             navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
+                                popUpTo(Screen.Home.route) {
+                                    inclusive = false
                                     saveState = true
                                 }
                                 launchSingleTop = true
-                                restoreState = true
                             }
                         }
                     )
@@ -90,11 +89,11 @@ fun DripLabApp() {
                         HomeScreen(
                             onNavigateToBrew = {
                                 navController.navigate(Screen.Brew.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
+                                    popUpTo(Screen.Home.route) {
+                                        inclusive = false
                                         saveState = true
                                     }
                                     launchSingleTop = true
-                                    restoreState = true
                                 }
                             }
                         )
