@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -23,12 +24,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
@@ -36,11 +39,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -53,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -439,6 +445,23 @@ private fun BackupSection(
 
 @Composable
 private fun AboutSection() {
+    val context = LocalContext.current
+    var showReadme by remember { mutableStateOf(false) }
+    var readmeContent by remember { mutableStateOf("") }
+    var readmeLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(showReadme) {
+        if (showReadme && readmeContent.isEmpty()) {
+            readmeLoading = true
+            try {
+                readmeContent = context.assets.open("README.md").bufferedReader().use { it.readText() }
+            } catch (_: Exception) {
+                readmeContent = "无法加载 README 文档"
+            }
+            readmeLoading = false
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -447,7 +470,7 @@ private fun AboutSection() {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("关于", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("滴落间Lab v1.0.0", style = MaterialTheme.typography.bodyLarge)
+            Text("滴落间Lab v1.0.4", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(4.dp))
             Text("DripLab - 咖啡冲煮助手", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -455,6 +478,176 @@ private fun AboutSection() {
             Text("专为咖啡爱好者打造的多方法冲煮辅助工具",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(12.dp))
+            FilledTonalButton(
+                onClick = { showReadme = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("查看 README 更新日志")
+            }
+        }
+    }
+
+    if (showReadme) {
+        AlertDialog(
+            onDismissRequest = { showReadme = false },
+            title = {
+                Text("滴落间Lab v1.0.4", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                if (readmeLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    ReadmeContent(readmeContent)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showReadme = false }) {
+                    Text("关闭")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ReadmeContent(content: String) {
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(450.dp)
+            .verticalScroll(scrollState)
+    ) {
+        val lines = content.split("\n")
+        var inCodeBlock = false
+        var inTable = false
+
+        for (line in lines) {
+            val trimmed = line.trim()
+
+            if (trimmed.startsWith("```")) {
+                inCodeBlock = !inCodeBlock
+                continue
+            }
+
+            if (inCodeBlock) {
+                Text(
+                    "  $trimmed",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                )
+                continue
+            }
+
+            if (trimmed.startsWith("---")) {
+                Spacer(modifier = Modifier.height(4.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                Spacer(modifier = Modifier.height(4.dp))
+                continue
+            }
+
+            if (trimmed.startsWith("|") && trimmed.endsWith("|")) {
+                if (trimmed.contains("---")) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    continue
+                }
+                Text(
+                    trimmed,
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 1.dp, horizontal = 4.dp)
+                )
+                continue
+            }
+
+            if (trimmed.startsWith("# ")) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    trimmed.removePrefix("# "),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                continue
+            }
+
+            if (trimmed.startsWith("## ")) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    trimmed.removePrefix("## "),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                continue
+            }
+
+            if (trimmed.startsWith("### ")) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    trimmed.removePrefix("### "),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                continue
+            }
+
+            if (trimmed.startsWith("> ")) {
+                Text(
+                    trimmed.removePrefix("> "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 1.dp, horizontal = 8.dp)
+                )
+                continue
+            }
+
+            if (trimmed.startsWith("- ")) {
+                Text(
+                    trimmed,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+                )
+                continue
+            }
+
+            if (trimmed.startsWith("**") && trimmed.endsWith("**")) {
+                Text(
+                    trimmed.removeSurrounding("**"),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 1.dp)
+                )
+                continue
+            }
+
+            if (trimmed.isEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                continue
+            }
+
+            Text(
+                trimmed,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(vertical = 1.dp)
+            )
         }
     }
 }
