@@ -393,7 +393,7 @@ private fun BackupSection(
 
             if (backupState.importSummary != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-                val summary = backupState.importSummary!!
+                val summary = backupState.importSummary
                 Card(
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
@@ -426,7 +426,7 @@ private fun BackupSection(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        backupState.errorMessage!!,
+                        backupState.errorMessage,
                         modifier = Modifier.padding(12.dp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error

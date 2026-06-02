@@ -25,14 +25,14 @@ abstract class DripLabDatabase : RoomDatabase() {
 
     companion object {
         val MIGRATION_4_5 = object : Migration(4, 5) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE recipe_steps ADD COLUMN waterRatio REAL NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recipe_steps ADD COLUMN waterRatio REAL NOT NULL DEFAULT 0")
             }
         }
 
         val MIGRATION_5_6 = object : Migration(5, 6) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("ALTER TABLE recipe_steps ADD COLUMN durationRatio REAL NOT NULL DEFAULT 0")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recipe_steps ADD COLUMN durationRatio REAL NOT NULL DEFAULT 0")
             }
         }
     }
