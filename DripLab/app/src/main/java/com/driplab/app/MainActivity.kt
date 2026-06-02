@@ -67,12 +67,17 @@ fun DripLabApp() {
                         label = { Text(screen.label) },
                         selected = currentRoute == screen.route,
                         onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(Screen.Home.route) {
-                                    inclusive = false
-                                    saveState = true
+                            if (screen.route == Screen.Home.route) {
+                                navController.popBackStack(Screen.Home.route, inclusive = false)
+                            } else {
+                                navController.navigate(screen.route) {
+                                    popUpTo(Screen.Home.route) {
+                                        inclusive = false
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
                             }
                         }
                     )
@@ -94,6 +99,7 @@ fun DripLabApp() {
                                         saveState = true
                                     }
                                     launchSingleTop = true
+                                    restoreState = true
                                 }
                             }
                         )
