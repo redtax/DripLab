@@ -134,12 +134,26 @@ class PourOverViewModel @Inject constructor(
     }
 
     private fun initTts() {
+        val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val selectedEngine = prefs.getString(KEY_TTS_ENGINE, null)
+
+        if (!selectedEngine.isNullOrBlank()) {
+            Log.i(TAG, "TTS: trying user-selected engine: $selectedEngine")
+            try {
+                tts = TextToSpeech(appContext, createOnInitListener(0, emptyList()), selectedEngine)
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS: selected engine threw: ${e.message}")
+                tts = null
+            }
+            if (tts != null) return
+        }
+
         val engines = resolveEngineList()
         Log.i(TAG, "TTS resolved engines: $engines")
         if (engines.isEmpty()) {
             Log.e(TAG, "TTS: no engines found, using deprecated constructor")
             @Suppress("DEPRECATION")
-            tts = TextToSpeech(appContext, createOnInitListener(-1))
+            tts = TextToSpeech(appContext, createOnInitListener(-1, emptyList()))
             return
         }
         tryEngine(engines, 0)
@@ -149,13 +163,13 @@ class PourOverViewModel @Inject constructor(
         if (index >= engines.size) {
             Log.w(TAG, "TTS: all ${engines.size} engines failed, trying deprecated constructor")
             @Suppress("DEPRECATION")
-            tts = TextToSpeech(appContext, createOnInitListener(-1))
+            tts = TextToSpeech(appContext, createOnInitListener(-1, emptyList()))
             return
         }
         val engine = engines[index]
         Log.i(TAG, "TTS trying engine[$index]: $engine")
         try {
-            tts = TextToSpeech(appContext, createOnInitListener(index), engine)
+            tts = TextToSpeech(appContext, createOnInitListener(index, engines), engine)
         } catch (e: Exception) {
             Log.e(TAG, "TTS engine[$index] constructor threw: ${e.message}")
             tts = null
@@ -163,13 +177,16 @@ class PourOverViewModel @Inject constructor(
         }
     }
 
-    private fun createOnInitListener(engineIndex: Int): TextToSpeech.OnInitListener {
+    private fun createOnInitListener(engineIndex: Int, engines: List<String>): TextToSpeech.OnInitListener {
         return TextToSpeech.OnInitListener { status ->
             Log.i(TAG, "TTS engine[$engineIndex] onInit status=$status")
             if (status != TextToSpeech.SUCCESS) {
                 Log.e(TAG, "TTS engine[$engineIndex] init failed, status=$status")
                 tts?.shutdown()
                 tts = null
+                if (engineIndex >= 0 && engineIndex + 1 < engines.size) {
+                    tryEngine(engines, engineIndex + 1)
+                }
                 return@OnInitListener
             }
             var languageSet = false
@@ -617,5 +634,6 @@ class PourOverViewModel @Inject constructor(
         private const val TAG = "DripLab"
         private const val PREFS_NAME = "driplab_prefs"
         private const val KEY_LAST_RECIPE_ID = "last_recipe_id"
+        private const val KEY_TTS_ENGINE = "tts_engine"
     }
 }

@@ -23,14 +23,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -100,6 +103,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             ThemeSection(state.theme, state.darkTheme, viewModel)
             Spacer(modifier = Modifier.height(16.dp))
             AlertModeSection(state.alertMode, state.bgMusicUri, viewModel)
+            Spacer(modifier = Modifier.height(16.dp))
+            TtsEngineSection(viewModel)
             Spacer(modifier = Modifier.height(16.dp))
             BackupSection(
                 backupState = backupState,
@@ -309,6 +314,156 @@ private fun AlertModeSection(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text("已选择自定义背景音", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TtsEngineSection(viewModel: SettingsViewModel) {
+    val ttsState by viewModel.ttsState.collectAsState()
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.RecordVoiceOver, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("TTS 引擎", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "选择系统内可用的 TTS 引擎并进行语音测试，测试通过后勾选即可使用",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (ttsState.engines.isEmpty() && !ttsState.isLoading) {
+                Text(
+                    "未检测到 TTS 引擎，请安装语音引擎（如 Google 文字转语音）",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else {
+                ttsState.engines.forEach { engine ->
+                    val isTesting = ttsState.testingEngine == engine.packageName
+                    val isSelected = ttsState.selectedEngine == engine.packageName
+                    val testResult = ttsState.testResult
+                    val isThisEngineResult = testResult?.engine == engine.packageName
+
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    engine.label,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                                Text(
+                                    engine.packageName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isTesting) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.height(20.dp).width(20.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+
+                                TextButton(
+                                    onClick = { viewModel.testTtsEngine(engine.packageName) },
+                                    enabled = !isTesting
+                                ) {
+                                    Text(
+                                        if (isTesting) "测试中..." else "测试",
+                                        fontSize = 13.sp
+                                    )
+                                }
+
+                                if (isThisEngineResult && testResult.success) {
+                                    Icon(
+                                        imageVector = if (isSelected) Icons.Filled.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                                        contentDescription = if (isSelected) "已选择" else "选择此引擎",
+                                        tint = if (isSelected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .height(24.dp)
+                                            .clickable {
+                                                if (isSelected) {
+                                                    viewModel.clearTtsEngine()
+                                                } else {
+                                                    viewModel.selectTtsEngine(engine.packageName)
+                                                }
+                                            }
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isThisEngineResult) {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (testResult.success) {
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                    } else {
+                                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                                    }
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    testResult.message,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (testResult.success) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.error
+                                    }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                            thickness = 0.5.dp
+                        )
+                    }
+                }
+            }
+
+            if (ttsState.isLoading) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.height(20.dp).width(20.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("正在搜索 TTS 引擎...", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

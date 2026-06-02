@@ -13,7 +13,8 @@ data class AppThemeState(
     val theme: DripTheme = DripTheme.CLASSIC,
     val darkTheme: Boolean = false,
     val alertMode: AlertMode = AlertMode.STANDARD,
-    val bgMusicUri: String = ""
+    val bgMusicUri: String = "",
+    val selectedTtsEngine: String? = null
 )
 
 @Singleton
@@ -31,7 +32,14 @@ class ThemeManager @Inject constructor(
         val alertModeIndex = prefs.getInt(KEY_ALERT_MODE_INDEX, 2)
         val alertMode = AlertMode.entries.getOrElse(alertModeIndex) { AlertMode.STANDARD }
         val bgMusicUri = prefs.getString(KEY_BG_MUSIC_URI, "") ?: ""
-        return AppThemeState(theme = theme, darkTheme = darkTheme, alertMode = alertMode, bgMusicUri = bgMusicUri)
+        val selectedTtsEngine = prefs.getString(KEY_TTS_ENGINE, null)
+        return AppThemeState(
+            theme = theme,
+            darkTheme = darkTheme,
+            alertMode = alertMode,
+            bgMusicUri = bgMusicUri,
+            selectedTtsEngine = selectedTtsEngine
+        )
     }
 
     fun selectTheme(theme: DripTheme) {
@@ -55,6 +63,19 @@ class ThemeManager @Inject constructor(
         prefs.edit().putString(KEY_BG_MUSIC_URI, uri).apply()
     }
 
+    fun selectTtsEngine(engine: String?) {
+        _state.value = _state.value.copy(selectedTtsEngine = engine)
+        if (engine != null) {
+            prefs.edit().putString(KEY_TTS_ENGINE, engine).apply()
+        } else {
+            prefs.edit().remove(KEY_TTS_ENGINE).apply()
+        }
+    }
+
+    fun clearTtsEngine() {
+        selectTtsEngine(null)
+    }
+
     fun restoreFromBackup(settings: com.driplab.app.core.recipe.BackupSettings) {
         val theme = DripTheme.entries.getOrElse(settings.themeIndex) { DripTheme.CLASSIC }
         val alertMode = AlertMode.entries.getOrElse(settings.alertModeIndex) { AlertMode.STANDARD }
@@ -62,7 +83,8 @@ class ThemeManager @Inject constructor(
             theme = theme,
             darkTheme = settings.isDarkTheme,
             alertMode = alertMode,
-            bgMusicUri = settings.bgMusicUri ?: ""
+            bgMusicUri = settings.bgMusicUri ?: "",
+            selectedTtsEngine = settings.selectedTtsEngine
         )
         prefs.edit()
             .putInt(KEY_THEME_INDEX, settings.themeIndex)
@@ -70,6 +92,11 @@ class ThemeManager @Inject constructor(
             .putInt(KEY_ALERT_MODE_INDEX, settings.alertModeIndex)
             .putString(KEY_BG_MUSIC_URI, settings.bgMusicUri)
             .apply()
+        if (settings.selectedTtsEngine != null) {
+            prefs.edit().putString(KEY_TTS_ENGINE, settings.selectedTtsEngine).apply()
+        } else {
+            prefs.edit().remove(KEY_TTS_ENGINE).apply()
+        }
     }
 
     companion object {
@@ -78,5 +105,6 @@ class ThemeManager @Inject constructor(
         private const val KEY_DARK_THEME = "dark_theme"
         private const val KEY_ALERT_MODE_INDEX = "alert_mode_index"
         private const val KEY_BG_MUSIC_URI = "bg_music_uri"
+        private const val KEY_TTS_ENGINE = "tts_engine"
     }
 }

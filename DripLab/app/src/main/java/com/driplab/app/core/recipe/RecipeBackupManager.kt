@@ -169,13 +169,12 @@ class RecipeBackupManager @Inject constructor(
 
     private fun loadCurrentSettings(): BackupSettings {
         val themePrefs = appContext.getSharedPreferences("driplab_prefs", Context.MODE_PRIVATE)
-        val ttsPrefs = appContext.getSharedPreferences("driplab_tts_prefs", Context.MODE_PRIVATE)
         return BackupSettings(
             themeIndex = themePrefs.getInt("theme_index", 0),
             isDarkTheme = themePrefs.getBoolean("dark_theme", false),
             alertModeIndex = themePrefs.getInt("alert_mode_index", 0),
             bgMusicUri = themePrefs.getString("bg_music_uri", null),
-            selectedTtsEngine = ttsPrefs.getString("selected_tts_engine", null)
+            selectedTtsEngine = themePrefs.getString("tts_engine", null)
         )
     }
 }
