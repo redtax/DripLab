@@ -1,13 +1,10 @@
 package com.driplab.app.ui.recipe
 
-import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
@@ -32,13 +28,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -104,6 +98,13 @@ fun RecipeScreen(
         }
     }
 
+    LaunchedEffect(state.selectedRecipeName) {
+        state.selectedRecipeName?.let { name ->
+            Toast.makeText(context, "已选定「${name}」为当前配方", Toast.LENGTH_SHORT).show()
+            viewModel.clearSelectedRecipe()
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -153,6 +154,7 @@ fun RecipeScreen(
                     items(state.recipes, key = { it.id }) { recipe ->
                         RecipeCard(
                             recipe = recipe,
+                            onClick = { viewModel.selectRecipe(recipe) },
                             onExport = { viewModel.exportRecipe(recipe) },
                             onEdit = { viewModel.editRecipe(recipe) },
                             onDelete = { showDeleteDialog = recipe }
@@ -226,12 +228,13 @@ fun RecipeScreen(
 @Composable
 private fun RecipeCard(
     recipe: Recipe,
+    onClick: () -> Unit,
     onExport: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
@@ -292,47 +295,8 @@ private fun RecipeCard(
                     }
                 }
             }
-
-            if (recipe.steps.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                recipe.steps.sortedBy { it.sequence }.forEach { step ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "${step.sequence}.",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.width(20.dp)
-                        )
-                        Text(
-                            "${phaseLabel(step.phase)} ${formatDuration(step.duration)} · ${step.targetWater}ml",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
         }
     }
-}
-
-private fun phaseLabel(phase: com.driplab.app.domain.model.BrewPhase): String = when (phase) {
-    com.driplab.app.domain.model.BrewPhase.BLOOM -> "闷蒸"
-    com.driplab.app.domain.model.BrewPhase.POUR -> "注水"
-    com.driplab.app.domain.model.BrewPhase.WAIT -> "滴滤"
-    else -> phase.name
-}
-
-private fun formatDuration(seconds: Int): String {
-    if (seconds >= 60) {
-        val m = seconds / 60
-        val s = seconds % 60
-        return if (s > 0) "${m}分${s}秒" else "${m}分钟"
-    }
-    return "${seconds}秒"
 }
 
 private fun methodLabel(method: BrewMethod): String = when (method) {

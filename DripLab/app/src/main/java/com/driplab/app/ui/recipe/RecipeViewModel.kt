@@ -2,6 +2,7 @@ package com.driplab.app.ui.recipe
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.driplab.app.data.BrewSessionManager
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.Recipe
 import com.driplab.app.domain.repository.RecipeRepository
@@ -16,7 +17,8 @@ data class RecipeListState(
     val recipes: List<Recipe> = emptyList(),
     val isLoading: Boolean = true,
     val exportText: String? = null,
-    val navigationTarget: RecipeNavigation? = null
+    val navigationTarget: RecipeNavigation? = null,
+    val selectedRecipeName: String? = null
 )
 
 sealed class RecipeNavigation {
@@ -26,7 +28,8 @@ sealed class RecipeNavigation {
 
 @HiltViewModel
 class RecipeViewModel @Inject constructor(
-    private val recipeRepository: RecipeRepository
+    private val recipeRepository: RecipeRepository,
+    private val brewSessionManager: BrewSessionManager
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(RecipeListState())
@@ -42,6 +45,15 @@ class RecipeViewModel @Inject constructor(
             val recipes = recipeRepository.getAllRecipes()
             _state.value = _state.value.copy(recipes = recipes, isLoading = false)
         }
+    }
+
+    fun selectRecipe(recipe: Recipe) {
+        brewSessionManager.setActiveRecipe(recipe)
+        _state.value = _state.value.copy(selectedRecipeName = recipe.name)
+    }
+
+    fun clearSelectedRecipe() {
+        _state.value = _state.value.copy(selectedRecipeName = null)
     }
 
     fun deleteRecipe(recipe: Recipe) {
