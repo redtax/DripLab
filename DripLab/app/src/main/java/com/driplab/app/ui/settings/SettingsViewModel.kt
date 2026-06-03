@@ -67,10 +67,11 @@ object RecommendedTtsEngines {
     // 讯飞语记实际包名（注意：不是 com.iflytek.inputmethod 那个是讯飞输入法）
     // 兼容多设备变体：voicenote 主包、tts 引擎、cloud 云
     val IFLY_CANDIDATES = listOf(
-        "com.iflytek.voicenote",  // 讯飞语记（主包）
-        "com.iflytek.tts",        // 讯飞语音 TTS 引擎（独立安装场景）
-        "com.iflytek.cloud",      // 讯飞云能力
-        "com.iflytek.speechcloud" // 讯飞语音云（老版本）
+        "com.iflytek.vflynote",    // 讯飞语记（小米/讯飞联合定制版主包，真机常见）
+        "com.iflytek.voicenote",   // 讯飞语记（标准版主包）
+        "com.iflytek.tts",         // 讯飞语音 TTS 引擎（独立安装场景）
+        "com.iflytek.cloud",       // 讯飞云能力
+        "com.iflytek.speechcloud"  // 讯飞语音云（老版本）
     )
     const val IFLY = "com.iflytek.voicenote"
 
@@ -126,8 +127,17 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun loadRecommendedEngines() {
-        val installedPkgs = detectInstalledTtsPackages()
-        val installedLabels = detectInstalledTtsLabels()
+        val installedPkgs = detectInstalledTtsPackages().toMutableSet()
+        val installedLabels = detectInstalledTtsLabels().toMutableList()
+        // 兜底：使用 _ttsState 中已成功 discover 的引擎（label 和 pkg 双源）
+        // 这能解决 queryIntentServices 偶发返回空的问题
+        val discoveredEngines = _ttsState.value.engines
+        discoveredEngines.forEach { eng ->
+            installedPkgs.add(eng.packageName)
+            installedLabels.add(eng.label)
+            installedLabels.add(eng.packageName) // 包名也作为标签候选
+        }
+        Log.d(TAG, "TTS settings: detection sources - discovered engines=${discoveredEngines.map { it.packageName }}, pkgs=$installedPkgs, labels=$installedLabels")
         val withStatus = RecommendedTtsEngines.ALL.map { rec ->
             val installed = when (rec.displayName) {
                 "Google 文字转语音" -> rec.packageName in installedPkgs
@@ -144,11 +154,13 @@ class SettingsViewModel @Inject constructor(
     private fun isIflytekInstalled(installedPkgs: Set<String>, installedLabels: List<String>): Boolean {
         // 优先按包名候选匹配
         val byPackage = RecommendedTtsEngines.IFLY_CANDIDATES.any { it in installedPkgs }
-        // 兜底：按已注册 TTS_SERVICE 的标签名匹配（兼容变种包名）
+        // 兜底：按已注册 TTS_SERVICE 的标签名/包名匹配（兼容变种包名）
         val byLabel = installedLabels.any { label ->
             label.contains("讯飞", ignoreCase = true) ||
             label.contains("iflytek", ignoreCase = true) ||
-            label.contains("iFly", ignoreCase = true)
+            label.contains("iFly", ignoreCase = true) ||
+            label.contains("vflynote", ignoreCase = true) ||
+            label.contains("voicenote", ignoreCase = true)
         }
         Log.d(TAG, "TTS settings: iFlytek check byPackage=$byPackage byLabel=$byLabel labels=$installedLabels")
         return byPackage || byLabel
@@ -159,6 +171,7 @@ class SettingsViewModel @Inject constructor(
         try {
             val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
             val infos = appContext.packageManager.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            Log.d(TAG, "TTS settings: TTS_SERVICE labels query returned ${infos.size} services")
             for (info in infos) {
                 val label = info.serviceInfo.loadLabel(appContext.packageManager).toString()
                 labels.add(label)

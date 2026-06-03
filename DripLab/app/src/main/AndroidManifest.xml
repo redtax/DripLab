@@ -8,6 +8,21 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
+    <!-- Android 11+ package visibility: 声明 TTS 引擎可见性 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <!-- 推荐的 TTS 引擎包名显式声明 -->
+        <package android:name="com.google.android.tts" />
+        <package android:name="com.xiaomi.mibrain.speech" />
+        <package android:name="com.iflytek.vflynote" />
+        <package android:name="com.iflytek.voicenote" />
+        <package android:name="com.iflytek.tts" />
+        <package android:name="com.iflytek.cloud" />
+        <package android:name="com.iflytek.speechcloud" />
+    </queries>
+
     <application
         android:name=".DripLabApplication"
         android:allowBackup="true"
