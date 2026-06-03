@@ -400,7 +400,7 @@ private fun TtsEngineSection(viewModel: SettingsViewModel) {
                                     )
                                 }
 
-                                if (isThisEngineResult && testResult.success) {
+                                if (isThisEngineResult && testResult?.success == true) {
                                     Icon(
                                         imageVector = if (isSelected) Icons.Filled.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
                                         contentDescription = if (isSelected) "已选择" else "选择此引擎",
@@ -423,7 +423,7 @@ private fun TtsEngineSection(viewModel: SettingsViewModel) {
                         if (isThisEngineResult) {
                             Card(
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (testResult.success) {
+                                    containerColor = if (testResult?.success == true) {
                                         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
                                     } else {
                                         MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
@@ -433,10 +433,10 @@ private fun TtsEngineSection(viewModel: SettingsViewModel) {
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(
-                                    testResult.message,
+                                    testResult?.message.orEmpty(),
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = if (testResult.success) {
+                                    color = if (testResult?.success == true) {
                                         MaterialTheme.colorScheme.primary
                                     } else {
                                         MaterialTheme.colorScheme.error
