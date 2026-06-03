@@ -1,6 +1,6 @@
 # 滴落间Lab — DripLab
 
-> 滴落间Lab v1.0.4 · 咖啡冲煮助手 · Redtax 制作
+> 滴落间Lab v1.0.6 · 咖啡冲煮助手 · Redtax 制作
 
 ---
 
@@ -91,6 +91,26 @@
 ---
 
 ## 版本历史
+
+### v1.0.6
+
+- 修复 TTS 引擎检测：真机上讯飞语记的包名为 `com.iflytek.vflynote`（小米/讯飞联合定制版主包），原候选列表全部不匹配导致显示「未安装」
+- AndroidManifest 新增 `<queries>` 声明（Android 11+ 包可见性），确保 `queryIntentServices` / `getPackageInfo` 能正常访问 TTS 引擎和推荐包
+- 引擎检测三层兜底：候选包名匹配 → `_ttsState.value.engines` 已发现引擎 → 标签关键字匹配（`vflynote` / `voicenote` / `iflytek` / `iFly` / `讯飞`）
+- Android 16 适配：`initTts()` 优先使用三段式 `TextToSpeech(context, listener, enginePackage)` 显式指定引擎
+- TTS 初始化全链路日志：起手记录 API/设备型号、用户选择 vs 已发现、onInit 状态码解释、setLanguage 详细结果名（`LANG_AVAILABLE` / `LANG_MISSING_DATA` 等）、voices / zhVoices 数量、speak 入队结果
+- 用户选择引擎 onInit 失败时，构造 `priorityList = [用户选择, 系统默认, ...其他发现引擎]` 自动回退，不再沉默失败
+- TTS 测试代码增强：包名预检、`TTS_SERVICE` 注册检测、`tryFallbackDefaultEngine()` 默认引擎兜底
+- 推荐引擎区：列出 Google 文字转语音 / 小米大脑语音引擎 / 讯飞语记 三款，提供安装提示与「打开系统 TTS 设置」一键跳转
+- 旧 TTS SharedPreferences（`driplab_tts_prefs/selected_tts_engine`）到新位置（`driplab_prefs/tts_engine`）的迁移逻辑，升级时保留用户原有引擎选择
+- 关于页面 README 按钮自动读取新版本日志
+
+### v1.0.5
+
+- 恢复「我的 → TTS 引擎」测试与选择 UI：上次备份功能开发时被移除的引擎测试区重新加入
+- 修复冲煮运行状态下 TTS 语音失效的 bug：`tryEngine` 失败时 `onInitListener` 没有触发下一个引擎的重试，重试链断裂
+- 修复设置页 `testResult` 空指针编译错误：使用 `?.` 安全调用替代直接属性访问
+- 推荐安装 TTS 引擎区初版：Google 文字转语音、小米大脑语音引擎、讯飞语记三款引擎的安装指引
 
 ### v1.0.4
 

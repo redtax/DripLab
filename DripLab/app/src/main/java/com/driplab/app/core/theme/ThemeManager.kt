@@ -32,7 +32,19 @@ class ThemeManager @Inject constructor(
         val alertModeIndex = prefs.getInt(KEY_ALERT_MODE_INDEX, 2)
         val alertMode = AlertMode.entries.getOrElse(alertModeIndex) { AlertMode.STANDARD }
         val bgMusicUri = prefs.getString(KEY_BG_MUSIC_URI, "") ?: ""
-        val selectedTtsEngine = prefs.getString(KEY_TTS_ENGINE, null)
+        var selectedTtsEngine = prefs.getString(KEY_TTS_ENGINE, null)
+        // 迁移：v1.0.4 之前 TTS 引擎选择存放在独立的 driplab_tts_prefs/selected_tts_engine
+        // 升级到 v1.0.5+ 需把旧值搬入 driplab_prefs/tts_engine，保留用户原有选择
+        if (selectedTtsEngine.isNullOrBlank()) {
+            val oldTtsPrefs = appContext.getSharedPreferences(OLD_TTS_PREFS_NAME, Context.MODE_PRIVATE)
+            val oldEngine = oldTtsPrefs.getString(OLD_KEY_TTS_ENGINE, null)
+            if (!oldEngine.isNullOrBlank()) {
+                selectedTtsEngine = oldEngine
+                prefs.edit().putString(KEY_TTS_ENGINE, oldEngine).apply()
+                // 迁移成功后清理旧 prefs，避免后续误读
+                oldTtsPrefs.edit().remove(OLD_KEY_TTS_ENGINE).apply()
+            }
+        }
         return AppThemeState(
             theme = theme,
             darkTheme = darkTheme,
@@ -106,5 +118,8 @@ class ThemeManager @Inject constructor(
         private const val KEY_ALERT_MODE_INDEX = "alert_mode_index"
         private const val KEY_BG_MUSIC_URI = "bg_music_uri"
         private const val KEY_TTS_ENGINE = "tts_engine"
+        // v1.0.4 之前的旧 TTS 引擎存储位置（升级时一次性迁移）
+        private const val OLD_TTS_PREFS_NAME = "driplab_tts_prefs"
+        private const val OLD_KEY_TTS_ENGINE = "selected_tts_engine"
     }
 }
