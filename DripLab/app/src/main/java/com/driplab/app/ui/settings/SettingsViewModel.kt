@@ -39,7 +39,8 @@ data class TtsEngineUiState(
     val isLoading: Boolean = false,
     val testingEngine: String? = null,
     val testResult: TtsTestResult? = null,
-    val selectedEngine: String? = null
+    val selectedEngine: String? = null,
+    val recommendedEngines: List<RecommendedTtsEngine> = emptyList()
 )
 
 data class TtsEngineInfo(
@@ -47,11 +48,45 @@ data class TtsEngineInfo(
     val label: String
 )
 
+data class RecommendedTtsEngine(
+    val packageName: String,
+    val displayName: String,
+    val installHint: String,
+    val isInstalled: Boolean
+)
+
 data class TtsTestResult(
     val engine: String,
     val success: Boolean,
     val message: String
 )
+
+object RecommendedTtsEngines {
+    const val GOOGLE_TTS = "com.google.android.tts"
+    const val XIAOMI_BRAIN = "com.xiaomi.mibrain.speech"
+    const val IFLY = "com.iflytek.inputmethod"
+
+    val ALL = listOf(
+        RecommendedTtsEngine(
+            packageName = GOOGLE_TTS,
+            displayName = "Google 文字转语音",
+            installHint = "Play Store 搜索 \"Speech Services by Google\"",
+            isInstalled = false
+        ),
+        RecommendedTtsEngine(
+            packageName = XIAOMI_BRAIN,
+            displayName = "小米大脑语音引擎",
+            installHint = "小米手机内置 com.xiaomi.mibrain.speech，无需安装",
+            isInstalled = false
+        ),
+        RecommendedTtsEngine(
+            packageName = IFLY,
+            displayName = "讯飞语记",
+            installHint = "各大应用商店搜索 \"讯飞语记\"",
+            isInstalled = false
+        )
+    )
+}
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -75,10 +110,45 @@ class SettingsViewModel @Inject constructor(
     init {
         loadSelectedEngine()
         discoverTtsEngines()
+        loadRecommendedEngines()
     }
 
     private fun loadSelectedEngine() {
         _ttsState.value = _ttsState.value.copy(selectedEngine = themeManager.state.value.selectedTtsEngine)
+    }
+
+    private fun loadRecommendedEngines() {
+        val installedPkgs = detectInstalledTtsPackages()
+        val withStatus = RecommendedTtsEngines.ALL.map { rec ->
+            rec.copy(isInstalled = rec.packageName in installedPkgs)
+        }
+        _ttsState.value = _ttsState.value.copy(recommendedEngines = withStatus)
+        Log.i(TAG, "TTS settings: recommended engines status: ${withStatus.map { "${it.displayName}=${it.isInstalled}" }}")
+    }
+
+    private fun detectInstalledTtsPackages(): Set<String> {
+        val result = mutableSetOf<String>()
+        try {
+            val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
+            val infos = appContext.packageManager.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            infos.forEach { result.add(it.serviceInfo.packageName) }
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS settings: PackageManager query failed: ${e.message}")
+        }
+        // 检测特定包名是否已安装
+        listOf(
+            RecommendedTtsEngines.GOOGLE_TTS,
+            RecommendedTtsEngines.XIAOMI_BRAIN,
+            RecommendedTtsEngines.IFLY
+        ).forEach { pkg ->
+            try {
+                appContext.packageManager.getPackageInfo(pkg, 0)
+                result.add(pkg)
+            } catch (_: PackageManager.NameNotFoundException) {
+                // 未安装
+            }
+        }
+        return result
     }
 
     fun selectTheme(theme: DripTheme) {
@@ -139,11 +209,17 @@ class SettingsViewModel @Inject constructor(
                 val engines = resolveTtsEngineList()
                 _ttsState.value = _ttsState.value.copy(engines = engines, isLoading = false)
                 Log.i(TAG, "TTS settings: discovered ${engines.size} engines: ${engines.map { it.label }}")
+                loadRecommendedEngines()
             } catch (e: Exception) {
                 _ttsState.value = _ttsState.value.copy(isLoading = false)
                 Log.e(TAG, "TTS settings: discover failed: ${e.message}")
             }
         }
+    }
+
+    fun refreshTtsState() {
+        discoverTtsEngines()
+        loadRecommendedEngines()
     }
 
     fun testTtsEngine(enginePackage: String) {

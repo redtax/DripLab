@@ -27,8 +27,10 @@ import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.SaveAlt
@@ -323,6 +325,7 @@ private fun AlertModeSection(
 @Composable
 private fun TtsEngineSection(viewModel: SettingsViewModel) {
     val ttsState by viewModel.ttsState.collectAsState()
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -346,9 +349,30 @@ private fun TtsEngineSection(viewModel: SettingsViewModel) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            RecommendedTtsSubsection(
+                recommendedEngines = ttsState.recommendedEngines,
+                onOpenTtsSettings = {
+                    openTtsSettings(context)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                thickness = 0.5.dp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                "已检测到的引擎",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (ttsState.engines.isEmpty() && !ttsState.isLoading) {
                 Text(
-                    "未检测到 TTS 引擎，请安装语音引擎（如 Google 文字转语音）",
+                    "未检测到 TTS 引擎，请安装下方推荐引擎之一",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
@@ -466,6 +490,103 @@ private fun TtsEngineSection(viewModel: SettingsViewModel) {
                     Text("正在搜索 TTS 引擎...", style = MaterialTheme.typography.bodyMedium)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RecommendedTtsSubsection(
+    recommendedEngines: List<RecommendedTtsEngine>,
+    onOpenTtsSettings: () -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        ),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Info, contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    "推荐安装的 TTS 引擎",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "在 设置 → 更多设置 → 无障碍 → 文字转语音(TTS)输出 → 首选引擎 中确认能看到新引擎",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            recommendedEngines.forEach { engine ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            engine.displayName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            engine.installHint,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text(
+                        text = if (engine.isInstalled) "已安装" else "未安装",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 12.sp,
+                        color = if (engine.isInstalled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            FilledTonalButton(
+                onClick = onOpenTtsSettings,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("打开系统 TTS 设置")
+            }
+        }
+    }
+}
+
+private fun openTtsSettings(context: android.content.Context) {
+    val intents = listOf(
+        android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
+        android.content.Intent("com.android.settings.TTS_SETTINGS"),
+        android.content.Intent(android.provider.Settings.ACTION_SETTINGS)
+    )
+    for (intent in intents) {
+        try {
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            return
+        } catch (_: Exception) {
+            // 尝试下一个
         }
     }
 }

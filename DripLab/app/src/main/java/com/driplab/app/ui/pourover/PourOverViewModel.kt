@@ -134,24 +134,30 @@ class PourOverViewModel @Inject constructor(
     }
 
     private fun initTts() {
+        Log.i(TAG, "TTS init: start (API=${android.os.Build.VERSION.SDK_INT}, device=${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL})")
         val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val selectedEngine = prefs.getString(KEY_TTS_ENGINE, null)
+        Log.i(TAG, "TTS init: user-selected engine from prefs=$selectedEngine")
 
         if (!selectedEngine.isNullOrBlank()) {
-            Log.i(TAG, "TTS: trying user-selected engine: $selectedEngine")
+            Log.i(TAG, "TTS init: trying user-selected engine via 3-arg ctor: $selectedEngine")
             try {
                 tts = TextToSpeech(appContext, createOnInitListener(0, emptyList()), selectedEngine)
             } catch (e: Exception) {
-                Log.e(TAG, "TTS: selected engine threw: ${e.message}")
+                Log.e(TAG, "TTS init: user-selected engine ctor threw: ${e.message}")
                 tts = null
             }
-            if (tts != null) return
+            if (tts != null) {
+                Log.i(TAG, "TTS init: user-selected engine ctor returned non-null, waiting onInit")
+                return
+            }
+            Log.w(TAG, "TTS init: user-selected engine ctor returned null, falling back to discovery")
         }
 
         val engines = resolveEngineList()
-        Log.i(TAG, "TTS resolved engines: $engines")
+        Log.i(TAG, "TTS init: resolved engines=$engines")
         if (engines.isEmpty()) {
-            Log.e(TAG, "TTS: no engines found, using deprecated constructor")
+            Log.e(TAG, "TTS init: no engines found, using deprecated 2-arg ctor (default engine)")
             @Suppress("DEPRECATION")
             tts = TextToSpeech(appContext, createOnInitListener(-1, emptyList()))
             return
@@ -161,17 +167,17 @@ class PourOverViewModel @Inject constructor(
 
     private fun tryEngine(engines: List<String>, index: Int) {
         if (index >= engines.size) {
-            Log.w(TAG, "TTS: all ${engines.size} engines failed, trying deprecated constructor")
+            Log.w(TAG, "TTS tryEngine: all ${engines.size} engines failed, falling back to deprecated 2-arg ctor")
             @Suppress("DEPRECATION")
             tts = TextToSpeech(appContext, createOnInitListener(-1, emptyList()))
             return
         }
         val engine = engines[index]
-        Log.i(TAG, "TTS trying engine[$index]: $engine")
+        Log.i(TAG, "TTS tryEngine: index=$index engine=$engine using 3-arg ctor")
         try {
             tts = TextToSpeech(appContext, createOnInitListener(index, engines), engine)
         } catch (e: Exception) {
-            Log.e(TAG, "TTS engine[$index] constructor threw: ${e.message}")
+            Log.e(TAG, "TTS tryEngine: index=$index engine=$engine ctor threw: ${e.message}")
             tts = null
             tryEngine(engines, index + 1)
         }
@@ -179,14 +185,23 @@ class PourOverViewModel @Inject constructor(
 
     private fun createOnInitListener(engineIndex: Int, engines: List<String>): TextToSpeech.OnInitListener {
         return TextToSpeech.OnInitListener { status ->
-            Log.i(TAG, "TTS engine[$engineIndex] onInit status=$status")
+            Log.i(TAG, "TTS onInit: engineIndex=$engineIndex status=$status (0=SUCCESS, -1=ERROR, -2=STOPPED)")
             if (status != TextToSpeech.SUCCESS) {
-                Log.e(TAG, "TTS engine[$engineIndex] init failed, status=$status")
+                Log.e(TAG, "TTS onInit: FAIL engineIndex=$engineIndex status=$status, shutting down and trying next")
                 tts?.shutdown()
                 tts = null
                 if (engineIndex >= 0 && engineIndex + 1 < engines.size) {
+                    Log.i(TAG, "TTS onInit: retrying next engine ${engines[engineIndex + 1]}")
                     tryEngine(engines, engineIndex + 1)
+                } else {
+                    Log.e(TAG, "TTS onInit: no more engines to try")
                 }
+                return@OnInitListener
+            }
+            Log.i(TAG, "TTS onInit: SUCCESS, current engine=${tts?.defaultEngine ?: "unknown"}, trying locales...")
+            val activeTts = tts
+            if (activeTts == null) {
+                Log.e(TAG, "TTS onInit: SUCCESS but tts==null, aborting")
                 return@OnInitListener
             }
             var languageSet = false
@@ -194,81 +209,106 @@ class PourOverViewModel @Inject constructor(
                 Locale.forLanguageTag("zh-CN"),
                 Locale.SIMPLIFIED_CHINESE,
                 Locale.CHINESE,
-                Locale.forLanguageTag("zh")
+                Locale.forLanguageTag("zh"),
+                Locale.US
             )
             for (locale in candidates) {
-                val result = tts?.setLanguage(locale) ?: continue
-                Log.d(TAG, "TTS setLanguage($locale) result=$result")
+                val result = activeTts.setLanguage(locale)
+                val resultName = when (result) {
+                    TextToSpeech.LANG_AVAILABLE -> "LANG_AVAILABLE"
+                    TextToSpeech.LANG_COUNTRY_AVAILABLE -> "LANG_COUNTRY_AVAILABLE"
+                    TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE -> "LANG_COUNTRY_VAR_AVAILABLE"
+                    TextToSpeech.LANG_MISSING_DATA -> "LANG_MISSING_DATA"
+                    TextToSpeech.LANG_NOT_SUPPORTED -> "LANG_NOT_SUPPORTED"
+                    else -> "UNKNOWN($result)"
+                }
+                Log.i(TAG, "TTS setLanguage(locale=$locale, country=${locale.country}) -> $resultName")
                 if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
                     languageSet = true
                     break
                 }
             }
             if (!languageSet) {
+                Log.w(TAG, "TTS: primary locale candidates failed, scanning all available locales for zh")
                 for (loc in Locale.getAvailableLocales()) {
                     if (loc.language == "zh") {
-                        tts?.setLanguage(loc)
-                        languageSet = true
-                        Log.i(TAG, "TTS fallback locale $loc")
-                        break
+                        val result = activeTts.setLanguage(loc)
+                        Log.i(TAG, "TTS fallback setLanguage($loc) result=$result")
+                        if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+                            languageSet = true
+                            break
+                        }
                     }
                 }
             }
             if (languageSet) {
-                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {}
-                    override fun onDone(utteranceId: String?) {}
+                val voices = try { activeTts.voices } catch (e: Exception) { null }
+                Log.i(TAG, "TTS voices available: ${voices?.size ?: "n/a"}, current defaultVoice=${try { activeTts.voice?.name } catch (e: Exception) { "n/a" }}")
+                activeTts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        Log.d(TAG, "TTS utterance onStart id=$utteranceId")
+                    }
+                    override fun onDone(utteranceId: String?) {
+                        Log.d(TAG, "TTS utterance onDone id=$utteranceId")
+                    }
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
-                        Log.e(TAG, "TTS utterance error: $utteranceId")
+                        Log.e(TAG, "TTS utterance onError id=$utteranceId")
                     }
                     override fun onError(utteranceId: String?, errorCode: Int) {
-                        Log.e(TAG, "TTS utterance error: $utteranceId code=$errorCode")
+                        Log.e(TAG, "TTS utterance onError id=$utteranceId code=$errorCode")
                     }
                 })
                 isTtsReady = true
-                Log.i(TAG, "TTS ready, engineIndex=$engineIndex language=$languageSet")
+                Log.i(TAG, "TTS READY engineIndex=$engineIndex isTtsReady=true")
             } else {
-                Log.e(TAG, "TTS: no zh voice data installed")
+                Log.e(TAG, "TTS: no usable voice data installed for any zh locale")
+                isTtsReady = false
             }
         }
     }
 
     private fun resolveEngineList(): List<String> {
         val result = linkedSetOf<String>()
+        // 第一优先：Settings.Secure 中保存的默认引擎
         try {
             val engine = Settings.Secure.getString(appContext.contentResolver, "tts_default_synth")
+            Log.d(TAG, "TTS resolve: Settings.Secure.tts_default_synth=$engine")
             if (!engine.isNullOrBlank()) {
                 result.add(engine)
-                Log.i(TAG, "TTS engine from Settings.Secure: $engine")
+                Log.i(TAG, "TTS resolve: added from Settings.Secure: $engine")
             }
         } catch (e: Exception) {
-            Log.w(TAG, "TTS Settings.Secure failed: ${e.message}")
+            Log.w(TAG, "TTS resolve: Settings.Secure failed: ${e.message}")
         }
+        // 第二优先：反射 TextToSpeech.getDefaultEngine()
         try {
             val method = TextToSpeech::class.java.getMethod("getDefaultEngine")
             val engine = method.invoke(null) as? String
+            Log.d(TAG, "TTS resolve: reflection getDefaultEngine=$engine")
             if (!engine.isNullOrBlank()) {
                 result.add(engine)
-                Log.i(TAG, "TTS engine from reflection: $engine")
+                Log.i(TAG, "TTS resolve: added from reflection: $engine")
             }
         } catch (e: Exception) {
-            Log.w(TAG, "TTS reflection failed: ${e.message}")
+            Log.w(TAG, "TTS resolve: reflection getDefaultEngine failed: ${e.message}")
         }
+        // 第三优先：PackageManager 扫描所有 TTS_SERVICE
         try {
             val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
             val infos = appContext.packageManager.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            Log.i(TAG, "TTS PackageManager found ${infos.size} engines")
+            Log.i(TAG, "TTS resolve: PackageManager found ${infos.size} TTS engines")
             for (info in infos) {
                 val pkg = info.serviceInfo.packageName
                 if (pkg !in result) {
                     result.add(pkg)
-                    Log.i(TAG, "TTS engine from PackageManager: $pkg")
+                    Log.i(TAG, "TTS resolve: added from PackageManager: $pkg")
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "TTS PackageManager query failed: ${e.message}")
+            Log.w(TAG, "TTS resolve: PackageManager query failed: ${e.message}")
         }
+        Log.i(TAG, "TTS resolve: final list=$result")
         return result.toList()
     }
 
@@ -352,8 +392,9 @@ class PourOverViewModel @Inject constructor(
     }
 
     private fun speak(text: String) {
-        if (!isTtsReady || text.isBlank()) {
-            Log.w(TAG, "TTS speak skipped: ready=$isTtsReady text='${text.take(30)}'")
+        val activeTts = tts
+        if (!isTtsReady || text.isBlank() || activeTts == null) {
+            Log.w(TAG, "TTS speak skipped: ready=$isTtsReady tts=${if (activeTts == null) "null" else "ok"} text='${text.take(30)}'")
             return
         }
         val utteranceId = "driplab_${System.currentTimeMillis()}"
@@ -361,14 +402,16 @@ class PourOverViewModel @Inject constructor(
             putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
             putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
         }
-        val result = tts?.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+        val enginesActive = try { activeTts.engines?.joinToString() ?: "n/a" } catch (e: Exception) { "n/a" }
+        Log.d(TAG, "TTS speak: id=$utteranceId text='${text.take(50)}' engine=${activeTts.defaultEngine} voicesTotal=$enginesActive")
+        val result = activeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
         if (result == TextToSpeech.SUCCESS) {
-            Log.d(TAG, "TTS speak enqueued: id=$utteranceId")
+            Log.d(TAG, "TTS speak enqueued OK: id=$utteranceId")
         } else {
-            Log.e(TAG, "TTS speak failed: result=$result, reinitializing")
+            Log.e(TAG, "TTS speak FAIL: result=$result, reinitializing")
             isTtsReady = false
-            tts?.stop()
-            tts?.shutdown()
+            activeTts.stop()
+            activeTts.shutdown()
             tts = null
             initTts()
         }
