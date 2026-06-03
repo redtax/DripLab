@@ -64,7 +64,15 @@ data class TtsTestResult(
 object RecommendedTtsEngines {
     const val GOOGLE_TTS = "com.google.android.tts"
     const val XIAOMI_BRAIN = "com.xiaomi.mibrain.speech"
-    const val IFLY = "com.iflytek.inputmethod"
+    // 讯飞语记实际包名（注意：不是 com.iflytek.inputmethod 那个是讯飞输入法）
+    // 兼容多设备变体：voicenote 主包、tts 引擎、cloud 云
+    val IFLY_CANDIDATES = listOf(
+        "com.iflytek.voicenote",  // 讯飞语记（主包）
+        "com.iflytek.tts",        // 讯飞语音 TTS 引擎（独立安装场景）
+        "com.iflytek.cloud",      // 讯飞云能力
+        "com.iflytek.speechcloud" // 讯飞语音云（老版本）
+    )
+    const val IFLY = "com.iflytek.voicenote"
 
     val ALL = listOf(
         RecommendedTtsEngine(
@@ -119,11 +127,47 @@ class SettingsViewModel @Inject constructor(
 
     private fun loadRecommendedEngines() {
         val installedPkgs = detectInstalledTtsPackages()
+        val installedLabels = detectInstalledTtsLabels()
         val withStatus = RecommendedTtsEngines.ALL.map { rec ->
-            rec.copy(isInstalled = rec.packageName in installedPkgs)
+            val installed = when (rec.displayName) {
+                "Google 文字转语音" -> rec.packageName in installedPkgs
+                "小米大脑语音引擎" -> rec.packageName in installedPkgs
+                "讯飞语记" -> isIflytekInstalled(installedPkgs, installedLabels)
+                else -> rec.packageName in installedPkgs
+            }
+            rec.copy(isInstalled = installed)
         }
         _ttsState.value = _ttsState.value.copy(recommendedEngines = withStatus)
         Log.i(TAG, "TTS settings: recommended engines status: ${withStatus.map { "${it.displayName}=${it.isInstalled}" }}")
+    }
+
+    private fun isIflytekInstalled(installedPkgs: Set<String>, installedLabels: List<String>): Boolean {
+        // 优先按包名候选匹配
+        val byPackage = RecommendedTtsEngines.IFLY_CANDIDATES.any { it in installedPkgs }
+        // 兜底：按已注册 TTS_SERVICE 的标签名匹配（兼容变种包名）
+        val byLabel = installedLabels.any { label ->
+            label.contains("讯飞", ignoreCase = true) ||
+            label.contains("iflytek", ignoreCase = true) ||
+            label.contains("iFly", ignoreCase = true)
+        }
+        Log.d(TAG, "TTS settings: iFlytek check byPackage=$byPackage byLabel=$byLabel labels=$installedLabels")
+        return byPackage || byLabel
+    }
+
+    private fun detectInstalledTtsLabels(): List<String> {
+        val labels = mutableListOf<String>()
+        try {
+            val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
+            val infos = appContext.packageManager.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            for (info in infos) {
+                val label = info.serviceInfo.loadLabel(appContext.packageManager).toString()
+                labels.add(label)
+                Log.d(TAG, "TTS settings: TTS_SERVICE registered pkg=${info.serviceInfo.packageName} label=$label")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS settings: TTS_SERVICE label query failed: ${e.message}")
+        }
+        return labels
     }
 
     private fun detectInstalledTtsPackages(): Set<String> {
@@ -135,17 +179,20 @@ class SettingsViewModel @Inject constructor(
         } catch (e: Exception) {
             Log.w(TAG, "TTS settings: PackageManager query failed: ${e.message}")
         }
-        // 检测特定包名是否已安装
-        listOf(
+        // 候选包名检测
+        val allCandidates = listOf(
             RecommendedTtsEngines.GOOGLE_TTS,
-            RecommendedTtsEngines.XIAOMI_BRAIN,
-            RecommendedTtsEngines.IFLY
-        ).forEach { pkg ->
+            RecommendedTtsEngines.XIAOMI_BRAIN
+        ) + RecommendedTtsEngines.IFLY_CANDIDATES
+        for (pkg in allCandidates) {
             try {
                 appContext.packageManager.getPackageInfo(pkg, 0)
                 result.add(pkg)
+                Log.d(TAG, "TTS settings: candidate package installed: $pkg")
             } catch (_: PackageManager.NameNotFoundException) {
-                // 未安装
+                Log.d(TAG, "TTS settings: candidate package NOT installed: $pkg")
+            } catch (e: Exception) {
+                Log.w(TAG, "TTS settings: getPackageInfo($pkg) exception: ${e.message}")
             }
         }
         return result
