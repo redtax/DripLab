@@ -223,6 +223,44 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun testTtsEngine(enginePackage: String) {
+        Log.i(TAG, "TTS test: start engine=$enginePackage (API=${android.os.Build.VERSION.SDK_INT}, device=${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL})")
+        // 预检：先确认包是否已安装
+        val pm = appContext.packageManager
+        val installed = try {
+            pm.getPackageInfo(enginePackage, 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.e(TAG, "TTS test: package NOT installed: $enginePackage")
+            false
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS test: getPackageInfo exception: ${e.message}")
+            true
+        }
+        if (!installed) {
+            _ttsState.value = _ttsState.value.copy(
+                testingEngine = null,
+                testResult = TtsTestResult(
+                    engine = enginePackage,
+                    success = false,
+                    message = "引擎包未安装: $enginePackage"
+                )
+            )
+            return
+        }
+
+        // 预检：检查 TTS_SERVICE 注册情况
+        try {
+            val intent = android.content.Intent("android.intent.action.TTS_SERVICE")
+            val matched = pm.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            val registered = matched.any { it.serviceInfo.packageName == enginePackage }
+            Log.i(TAG, "TTS test: TTS_SERVICE registered=$registered (total=${matched.size}) for $enginePackage")
+            if (!registered) {
+                Log.w(TAG, "TTS test: $enginePackage 未注册 TTS_SERVICE，可能引擎已损坏或被禁用")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "TTS test: queryIntentServices failed: ${e.message}")
+        }
+
         _ttsState.value = _ttsState.value.copy(testingEngine = enginePackage, testResult = null)
         testTts?.stop()
         testTts?.shutdown()
@@ -230,43 +268,63 @@ class SettingsViewModel @Inject constructor(
 
         try {
             testTts = TextToSpeech(appContext, { status ->
+                Log.i(TAG, "TTS test onInit: engine=$enginePackage status=$status (0=SUCCESS, -1=ERROR, -2=STOPPED)")
                 if (status != TextToSpeech.SUCCESS) {
-                    Log.e(TAG, "TTS test: engine init failed, status=$status")
-                    _ttsState.value = _ttsState.value.copy(
-                        testingEngine = null,
-                        testResult = TtsTestResult(
-                            engine = enginePackage,
-                            success = false,
-                            message = "初始化失败 (status=$status)"
-                        )
-                    )
+                    Log.e(TAG, "TTS test: FAIL engine=$enginePackage status=$status, shutting down and trying default engine fallback")
+                    testTts?.shutdown()
+                    testTts = null
+                    tryFallbackDefaultEngine(enginePackage)
                     return@TextToSpeech
                 }
+                val activeTts = testTts
+                if (activeTts == null) {
+                    Log.e(TAG, "TTS test: SUCCESS but testTts==null, aborting")
+                    return@TextToSpeech
+                }
+                Log.i(TAG, "TTS test: SUCCESS, current engine=${activeTts.defaultEngine ?: "unknown"}, scanning voices...")
+                val voices = try { activeTts.voices } catch (e: Exception) { null }
+                val zhVoices = voices?.filter { it.locale?.language == "zh" }
+                Log.i(TAG, "TTS test: voices total=${voices?.size ?: "n/a"}, zhVoices=${zhVoices?.size ?: 0}")
 
                 var langOk = false
                 val candidates = listOf(
                     Locale.forLanguageTag("zh-CN"),
                     Locale.SIMPLIFIED_CHINESE,
                     Locale.CHINESE,
-                    Locale.forLanguageTag("zh")
+                    Locale.forLanguageTag("zh"),
+                    Locale.US
                 )
                 for (locale in candidates) {
-                    val result = testTts?.setLanguage(locale) ?: continue
+                    val result = activeTts.setLanguage(locale)
+                    val resultName = when (result) {
+                        TextToSpeech.LANG_AVAILABLE -> "LANG_AVAILABLE"
+                        TextToSpeech.LANG_COUNTRY_AVAILABLE -> "LANG_COUNTRY_AVAILABLE"
+                        TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE -> "LANG_COUNTRY_VAR_AVAILABLE"
+                        TextToSpeech.LANG_MISSING_DATA -> "LANG_MISSING_DATA"
+                        TextToSpeech.LANG_NOT_SUPPORTED -> "LANG_NOT_SUPPORTED"
+                        else -> "UNKNOWN($result)"
+                    }
+                    Log.i(TAG, "TTS test setLanguage(locale=$locale, country=${locale.country}) -> $resultName")
                     if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
                         langOk = true
                         break
                     }
                 }
                 if (!langOk) {
+                    Log.w(TAG, "TTS test: primary candidates failed, scanning all available locales for zh")
                     for (loc in Locale.getAvailableLocales()) {
                         if (loc.language == "zh") {
-                            testTts?.setLanguage(loc)
-                            langOk = true
-                            break
+                            val result = activeTts.setLanguage(loc)
+                            Log.i(TAG, "TTS test fallback setLanguage($loc) result=$result")
+                            if (result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED) {
+                                langOk = true
+                                break
+                            }
                         }
                     }
                 }
                 if (!langOk) {
+                    Log.e(TAG, "TTS test: no usable voice data for any zh locale on engine=$enginePackage")
                     _ttsState.value = _ttsState.value.copy(
                         testingEngine = null,
                         testResult = TtsTestResult(
@@ -278,9 +336,12 @@ class SettingsViewModel @Inject constructor(
                     return@TextToSpeech
                 }
 
-                testTts?.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {}
+                activeTts.setOnUtteranceProgressListener(object : android.speech.tts.UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        Log.d(TAG, "TTS test utterance onStart id=$utteranceId")
+                    }
                     override fun onDone(utteranceId: String?) {
+                        Log.i(TAG, "TTS test utterance onDone id=$utteranceId -> SUCCESS")
                         _ttsState.value = _ttsState.value.copy(
                             testingEngine = null,
                             testResult = TtsTestResult(
@@ -292,6 +353,7 @@ class SettingsViewModel @Inject constructor(
                     }
                     @Deprecated("Deprecated in Java")
                     override fun onError(utteranceId: String?) {
+                        Log.e(TAG, "TTS test utterance onError id=$utteranceId")
                         _ttsState.value = _ttsState.value.copy(
                             testingEngine = null,
                             testResult = TtsTestResult(
@@ -302,6 +364,7 @@ class SettingsViewModel @Inject constructor(
                         )
                     }
                     override fun onError(utteranceId: String?, errorCode: Int) {
+                        Log.e(TAG, "TTS test utterance onError id=$utteranceId code=$errorCode")
                         _ttsState.value = _ttsState.value.copy(
                             testingEngine = null,
                             testResult = TtsTestResult(
@@ -313,8 +376,11 @@ class SettingsViewModel @Inject constructor(
                     }
                 })
 
-                val speakResult = testTts?.speak("测试一下，这是滴落间Lab咖啡冲煮助手", TextToSpeech.QUEUE_FLUSH, null, "tts_test_${System.currentTimeMillis()}")
+                val enginesActive = try { activeTts.engines?.joinToString() ?: "n/a" } catch (e: Exception) { "n/a" }
+                Log.d(TAG, "TTS test speak: engine=${activeTts.defaultEngine} engines=$enginesActive")
+                val speakResult = activeTts.speak("测试一下，这是滴落间Lab咖啡冲煮助手", TextToSpeech.QUEUE_FLUSH, null, "tts_test_${System.currentTimeMillis()}")
                 if (speakResult != TextToSpeech.SUCCESS) {
+                    Log.e(TAG, "TTS test speak FAIL: result=$speakResult")
                     _ttsState.value = _ttsState.value.copy(
                         testingEngine = null,
                         testResult = TtsTestResult(
@@ -323,16 +389,61 @@ class SettingsViewModel @Inject constructor(
                             message = "播放失败 (speak=$speakResult)"
                         )
                     )
+                } else {
+                    Log.i(TAG, "TTS test speak enqueued OK, waiting onDone...")
                 }
             }, enginePackage)
         } catch (e: Exception) {
-            Log.e(TAG, "TTS test: exception: ${e.message}")
+            Log.e(TAG, "TTS test: ctor threw exception engine=$enginePackage: ${e.message}", e)
+            testTts?.shutdown()
+            testTts = null
+            tryFallbackDefaultEngine(enginePackage)
+        }
+    }
+
+    private fun tryFallbackDefaultEngine(originalEngine: String) {
+        Log.i(TAG, "TTS test: attempting fallback to default engine for original=$originalEngine")
+        try {
+            testTts = TextToSpeech(appContext, { fallbackStatus ->
+                Log.i(TAG, "TTS test fallback onInit: status=$fallbackStatus (0=SUCCESS, -1=ERROR)")
+                if (fallbackStatus != TextToSpeech.SUCCESS) {
+                    Log.e(TAG, "TTS test: fallback default engine also FAIL status=$fallbackStatus")
+                    testTts?.shutdown()
+                    testTts = null
+                    _ttsState.value = _ttsState.value.copy(
+                        testingEngine = null,
+                        testResult = TtsTestResult(
+                            engine = originalEngine,
+                            success = false,
+                            message = "引擎初始化失败 (status=$fallbackStatus)，请检查系统 TTS 设置"
+                        )
+                    )
+                    return@TextToSpeech
+                }
+                val fallbackTts = testTts ?: return@TextToSpeech
+                val zhVoices = try { fallbackTts.voices?.filter { it.locale?.language == "zh" } } catch (e: Exception) { null }
+                Log.i(TAG, "TTS test fallback: SUCCESS, default engine=${fallbackTts.defaultEngine}, zhVoices=${zhVoices?.size ?: "n/a"}")
+                _ttsState.value = _ttsState.value.copy(
+                    testingEngine = null,
+                    testResult = TtsTestResult(
+                        engine = originalEngine,
+                        success = false,
+                        message = "原引擎失败，但默认引擎 ${fallbackTts.defaultEngine ?: "未知"} 可用，请在系统 TTS 设置中启用"
+                    )
+                )
+                testTts?.shutdown()
+                testTts = null
+            })
+        } catch (e: Exception) {
+            Log.e(TAG, "TTS test: fallback default engine ctor threw: ${e.message}", e)
+            testTts?.shutdown()
+            testTts = null
             _ttsState.value = _ttsState.value.copy(
                 testingEngine = null,
                 testResult = TtsTestResult(
-                    engine = enginePackage,
+                    engine = originalEngine,
                     success = false,
-                    message = "引擎异常: ${e.message}"
+                    message = "默认引擎也无法初始化，请检查系统 TTS 引擎"
                 )
             )
         }

@@ -139,30 +139,35 @@ class PourOverViewModel @Inject constructor(
         val selectedEngine = prefs.getString(KEY_TTS_ENGINE, null)
         Log.i(TAG, "TTS init: user-selected engine from prefs=$selectedEngine")
 
+        val discovered = resolveEngineList()
+        Log.i(TAG, "TTS init: discovered engines=$discovered")
+
         if (!selectedEngine.isNullOrBlank()) {
-            Log.i(TAG, "TTS init: trying user-selected engine via 3-arg ctor: $selectedEngine")
-            try {
-                tts = TextToSpeech(appContext, createOnInitListener(0, emptyList()), selectedEngine)
-            } catch (e: Exception) {
-                Log.e(TAG, "TTS init: user-selected engine ctor threw: ${e.message}")
-                tts = null
+            // 构造优先级列表：用户选择 > 系统默认 > 其他发现
+            val priorityList = linkedSetOf<String>()
+            priorityList.add(selectedEngine)
+            // 系统默认引擎优先于其他发现引擎
+            val systemDefault = discovered.firstOrNull { it == selectedEngine }
+                ?: run {
+                    val secureDefault = try { Settings.Secure.getString(appContext.contentResolver, "tts_default_synth") } catch (e: Exception) { null }
+                    if (!secureDefault.isNullOrBlank()) secureDefault else null
+                }
+            if (!systemDefault.isNullOrBlank() && systemDefault != selectedEngine) {
+                priorityList.add(systemDefault)
             }
-            if (tts != null) {
-                Log.i(TAG, "TTS init: user-selected engine ctor returned non-null, waiting onInit")
-                return
-            }
-            Log.w(TAG, "TTS init: user-selected engine ctor returned null, falling back to discovery")
+            discovered.forEach { priorityList.add(it) }
+            Log.i(TAG, "TTS init: priority list=$priorityList")
+            tryEngine(priorityList.toList(), 0)
+            return
         }
 
-        val engines = resolveEngineList()
-        Log.i(TAG, "TTS init: resolved engines=$engines")
-        if (engines.isEmpty()) {
+        if (discovered.isEmpty()) {
             Log.e(TAG, "TTS init: no engines found, using deprecated 2-arg ctor (default engine)")
             @Suppress("DEPRECATION")
             tts = TextToSpeech(appContext, createOnInitListener(-1, emptyList()))
             return
         }
-        tryEngine(engines, 0)
+        tryEngine(discovered, 0)
     }
 
     private fun tryEngine(engines: List<String>, index: Int) {
