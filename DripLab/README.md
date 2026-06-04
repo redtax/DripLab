@@ -1,6 +1,6 @@
 # 滴落间Lab — DripLab
 
-> 滴落间Lab v1.0.6 · 咖啡冲煮助手 · Redtax 制作
+> 滴落间Lab v1.0.7 · 咖啡冲煮助手 · Redtax 制作
 
 ---
 
@@ -91,6 +91,20 @@
 ---
 
 ## 版本历史
+
+### v1.0.7
+
+- 恢复滴答倒计时音：保留 `USAGE_MEDIA` 系统媒体渠道（不再使用闹铃渠道），在 `initSoundPool` / `playClickSound` / `playTickSound` / `playDingSound` 全部增加 Logcat 诊断日志（`DripLab: TTS_TICK: ...`），便于真机精确诊断
+- 保留 `AlertMode` 偏好门控（用户 SILENT 模式下滴答音会静音），但通过日志告知 `hasSound=false` 状态，方便用户自查
+- 恢复配方页「新增」按钮：手冲/浸泡/意式/爱乐压/法压/摩卡/冷萃全部 7 种方法的 TopAppBar 均增加 `Icons.Default.NoteAdd`「新增配方」按钮（点击 → 直接跳转到空编辑界面 `recipe_edit/0`）
+- 导入按钮修复：原 TopAppBar 的 `Add` 图标改为 `Icons.Default.ContentPaste`「导入配方」语义更清晰
+- 导入流程修复：原导入弹窗确认按钮直接调用 `viewModel.importRecipe(text)` 写入数据库（绕过编辑界面），现改为调用 `onEditImported(text)` 跳转到 `recipe_edit/0?importedJson=...`，由用户二次确认编辑后才存入配方库
+- 保留 `RecipeEditScreen` 顶部的"导入"按钮和导入弹窗（用户要求"原有的编辑界面应予以保留"）
+- 保留 v1.0.6 旧 TTS SharedPreferences（`driplab_tts_prefs/selected_tts_engine` → `driplab_prefs/tts_engine`）的一次性迁移逻辑
+- 保持 TTS 模块零修改（不修改 `initTts` / `tryEngine` / `createOnInitListener` / `speak` / `resolveEngineList`）
+- 保持 Room 数据库 v4→v5→v6 迁移兼容
+- 保持 SharedPreferences（主题设置/提示模式/背景音乐/TTS 引擎选择）零覆盖
+- 关于页 README 按钮自动读取新版本日志
 
 ### v1.0.6
 

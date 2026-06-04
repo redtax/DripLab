@@ -332,29 +332,39 @@ class PourOverViewModel @Inject constructor(
         tickSoundId = soundPool?.load(appContext, res.getIdentifier("tick", "raw", pkg), 1) ?: 0
         tickAlertSoundId = soundPool?.load(appContext, res.getIdentifier("tick_alert", "raw", pkg), 1) ?: 0
         dingSoundId = soundPool?.load(appContext, res.getIdentifier("ding", "raw", pkg), 1) ?: 0
+        Log.i(TAG, "TTS_TICK: initSoundPool channel=USAGE_MEDIA click=$clickSoundId tick=$tickSoundId tickAlert=$tickAlertSoundId ding=$dingSoundId")
     }
 
     fun playClickSound() {
         val state = themeManager.state.value
         if (state.alertMode.hasSound) {
-            soundPool?.play(clickSoundId, 0.15f, 0.15f, 1, 0, 1f)
+            val id = soundPool?.play(clickSoundId, 0.15f, 0.15f, 1, 0, 1f) ?: 0
+            Log.d(TAG, "TTS_TICK: playClickSound soundId=$clickSoundId playResult=$id alertMode=${state.alertMode}")
+        } else {
+            Log.d(TAG, "TTS_TICK: playClickSound SKIPPED (alertMode=${state.alertMode} hasSound=false)")
         }
     }
 
     private fun playTickSound(remainingSeconds: Int) {
         val alertState = themeManager.state.value
-        if (!alertState.alertMode.hasSound) return
+        if (!alertState.alertMode.hasSound) {
+            Log.d(TAG, "TTS_TICK: playTickSound SKIPPED (alertMode=${alertState.alertMode} hasSound=false) remaining=$remainingSeconds")
+            return
+        }
         if (remainingSeconds <= 10) {
-            soundPool?.play(tickAlertSoundId, 0.3f, 0.3f, 1, 0, 1f)
+            val id = soundPool?.play(tickAlertSoundId, 0.3f, 0.3f, 1, 0, 1f) ?: 0
+            Log.d(TAG, "TTS_TICK: playTickSound remaining=$remainingSeconds (last-10) soundId=$tickAlertSoundId playResult=$id")
         } else {
-            soundPool?.play(tickSoundId, 0.12f, 0.12f, 1, 0, 1f)
+            val id = soundPool?.play(tickSoundId, 0.12f, 0.12f, 1, 0, 1f) ?: 0
+            Log.d(TAG, "TTS_TICK: playTickSound remaining=$remainingSeconds soundId=$tickSoundId playResult=$id")
         }
     }
 
     private fun playDingSound() {
         val alertState = themeManager.state.value
         if (alertState.alertMode.hasSound) {
-            soundPool?.play(dingSoundId, 0.35f, 0.35f, 1, 0, 1f)
+            val id = soundPool?.play(dingSoundId, 0.35f, 0.35f, 1, 0, 1f) ?: 0
+            Log.d(TAG, "TTS_TICK: playDingSound soundId=$dingSoundId playResult=$id")
         }
     }
 

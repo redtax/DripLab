@@ -21,8 +21,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -115,8 +117,11 @@ fun RecipeScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onEditRecipe(0L) }) {
+                        Icon(Icons.Default.NoteAdd, contentDescription = "新增配方")
+                    }
                     IconButton(onClick = { showImportDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "导入配方")
+                        Icon(Icons.Default.ContentPaste, contentDescription = "导入配方")
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -208,7 +213,7 @@ fun RecipeScreen(
             confirmButton = {
                 TextButton(onClick = {
                     if (importText.isNotBlank()) {
-                        viewModel.importRecipe(importText.trim())
+                        onEditImported(importText.trim())
                         showImportDialog = false
                         importText = ""
                     }
