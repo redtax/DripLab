@@ -1,6 +1,6 @@
 # 滴落间Lab — DripLab
 
-> 滴落间Lab v1.0.7 · 咖啡冲煮助手 · Redtax 制作
+> 滴落间Lab v1.0.8 · 咖啡冲煮助手 · Redtax 制作
 
 ---
 
@@ -91,6 +91,17 @@
 ---
 
 ## 版本历史
+
+### v1.0.8
+
+- 修复关于页版本号错乱：`SettingsScreen.kt` 两处硬编码「滴落间Lab v1.0.4」改为 `BuildConfig.VERSION_NAME`，并启用 `buildFeatures.buildConfig=true`，未来版本号自动同步
+- 冲煮页顶部增加「当前提示模式: 静音/标准/轻柔/独享」提示横幅（仅在非 STANDARD 模式时显示），方便用户立即知道 TTS/滴答音门控状态
+- 保持 TTS 模块零修改（`initTts` / `tryEngine` / `createOnInitListener` / `speak` / `resolveEngineList` 全部未动）
+- 保持 `playTickSound` 的 AlertMode 偏好门控（用户 SILENT 模式下滴答音会静音，仍可通过「我的 → 提示模式」切换）
+- 保持 Room 数据库 v4→v5→v6 迁移兼容
+- 保持 SharedPreferences（主题设置/提示模式/背景音乐/TTS 引擎选择）零覆盖
+- 保留 v1.0.6 旧 TTS SharedPreferences（`driplab_tts_prefs/selected_tts_engine` → `driplab_prefs/tts_engine`）的一次性迁移逻辑
+- 保留 v1.0.7 新增的 Logcat 诊断日志（`DripLab: TTS_TICK: ...`）便于真机定位
 
 ### v1.0.7
 

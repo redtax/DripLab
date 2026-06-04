@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.driplab.app.core.timer.BrewState
+import com.driplab.app.domain.model.AlertMode
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewPhase
 import com.driplab.app.domain.model.Recipe
@@ -102,6 +104,11 @@ fun PourOverScreen(viewModel: PourOverViewModel = hiltViewModel()) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (state.alertMode != AlertMode.STANDARD) {
+                AlertModeBanner(state.alertMode)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             BrewControlSection(state, viewModel)
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -859,4 +866,35 @@ private fun formatElapsedTime(totalSeconds: Int): String {
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60
     return "%02d:%02d".format(minutes, seconds)
+}
+
+@Composable
+private fun AlertModeBanner(alertMode: AlertMode) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Notifications,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.tertiary
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "当前提示模式: ${alertMode.displayName}（${if (alertMode.hasSound) "有" else "无"}声音）",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+        }
+    }
 }

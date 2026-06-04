@@ -20,6 +20,7 @@ import com.driplab.app.core.timer.BrewTimer
 import com.driplab.app.data.BrewSessionManager
 import com.driplab.app.data.repository.BrewNoteRepositoryImpl
 import com.driplab.app.data.repository.RecipeRepositoryImpl
+import com.driplab.app.domain.model.AlertMode
 import com.driplab.app.domain.model.BrewMethod
 import com.driplab.app.domain.model.BrewNote
 import com.driplab.app.domain.model.BrewPhase
@@ -57,7 +58,8 @@ data class PourOverUiState(
     val currentMethod: BrewMethod = BrewMethod.POUR_OVER,
     val brewStartTime: Long = 0,
     val brewEndTime: Long = 0,
-    val noteAutoSaved: Boolean = false
+    val noteAutoSaved: Boolean = false,
+    val alertMode: AlertMode = AlertMode.STANDARD
 )
 
 @HiltViewModel
@@ -87,6 +89,17 @@ class PourOverViewModel @Inject constructor(
         setupBrewTimerCallbacks()
         initTts()
         initSoundPool()
+        observeAlertMode()
+    }
+
+    private fun observeAlertMode() {
+        viewModelScope.launch {
+            themeManager.state.collect { theme ->
+                if (_uiState.value.alertMode != theme.alertMode) {
+                    _uiState.value = _uiState.value.copy(alertMode = theme.alertMode)
+                }
+            }
+        }
     }
 
     private fun observeSessionRecipes() {

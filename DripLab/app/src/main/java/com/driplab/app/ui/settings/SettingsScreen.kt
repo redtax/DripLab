@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.driplab.app.BuildConfig
 import com.driplab.app.core.theme.DripTheme
 import com.driplab.app.domain.model.AlertMode
 
@@ -746,7 +747,7 @@ private fun AboutSection() {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("关于", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("滴落间Lab v1.0.4", style = MaterialTheme.typography.bodyLarge)
+            Text("滴落间Lab v${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyLarge)
             Spacer(modifier = Modifier.height(4.dp))
             Text("DripLab - 咖啡冲煮助手", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -770,7 +771,7 @@ private fun AboutSection() {
         AlertDialog(
             onDismissRequest = { showReadme = false },
             title = {
-                Text("滴落间Lab v1.0.4", fontWeight = FontWeight.Bold)
+                Text("滴落间Lab v${BuildConfig.VERSION_NAME}", fontWeight = FontWeight.Bold)
             },
             text = {
                 if (readmeLoading) {
