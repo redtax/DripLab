@@ -105,6 +105,7 @@
 - 保持 Room 数据库 v4→v5→v6 迁移兼容
 - 保持 SharedPreferences（主题设置/提示模式/背景音乐/TTS 引擎选择）零覆盖
 - 关于页 README 按钮自动读取新版本日志
+- 修复本地 Gradle 构建失败：`settings.gradle.kts` 的 `RepositoriesMode.FAIL_ON_PROJECT_REPOS` 与用户本地 `~/.gradle/init.d/init.gradle` 全局 init script 添加的 maven 仓库冲突，改为 `PREFER_SETTINGS` 后兼容自定义 init script（settings 仓库仍优先使用 google/mavenCentral）
 
 ### v1.0.6
 
