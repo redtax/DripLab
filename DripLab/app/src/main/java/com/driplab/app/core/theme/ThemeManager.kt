@@ -1,11 +1,14 @@
 package com.driplab.app.core.theme
 
 import android.content.Context
+import android.util.Log
 import com.driplab.app.domain.model.AlertMode
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -57,22 +60,26 @@ class ThemeManager @Inject constructor(
     fun selectTheme(theme: DripTheme) {
         _state.value = _state.value.copy(theme = theme)
         prefs.edit().putInt(KEY_THEME_INDEX, DripTheme.entries.indexOf(theme)).apply()
+        syncToBackup()
     }
 
     fun toggleDarkTheme() {
         val newValue = !_state.value.darkTheme
         _state.value = _state.value.copy(darkTheme = newValue)
         prefs.edit().putBoolean(KEY_DARK_THEME, newValue).apply()
+        syncToBackup()
     }
 
     fun selectAlertMode(mode: AlertMode) {
         _state.value = _state.value.copy(alertMode = mode)
         prefs.edit().putInt(KEY_ALERT_MODE_INDEX, AlertMode.entries.indexOf(mode)).apply()
+        syncToBackup()
     }
 
     fun setBgMusicUri(uri: String) {
         _state.value = _state.value.copy(bgMusicUri = uri)
         prefs.edit().putString(KEY_BG_MUSIC_URI, uri).apply()
+        syncToBackup()
     }
 
     fun selectTtsEngine(engine: String?) {
@@ -82,10 +89,43 @@ class ThemeManager @Inject constructor(
         } else {
             prefs.edit().remove(KEY_TTS_ENGINE).apply()
         }
+        syncToBackup()
     }
 
     fun clearTtsEngine() {
         selectTtsEngine(null)
+    }
+
+    /**
+     * v1.0.9 新增：设置变更后即时同步到 driplab_backup.json
+     *
+     * - 仅在备份文件已存在时执行（避免在没有备份时凭空创建，让显式导出仍是用户主导）
+     * - 读取已有备份，合并当前 settings，保留 recipes 不动
+     * - 失败时仅日志告警，不影响主流程
+     */
+    private fun syncToBackup() {
+        try {
+            val backupFile = File(appContext.filesDir, BACKUP_FILE_NAME)
+            if (!backupFile.exists()) return
+            val json = backupFile.readText()
+            val obj = JSONObject(json)
+            val settingsObj = obj.optJSONObject("settings") ?: JSONObject().also {
+                obj.put("settings", it)
+            }
+            settingsObj.put("themeIndex", DripTheme.entries.indexOf(state.value.theme))
+            settingsObj.put("isDarkTheme", state.value.darkTheme)
+            settingsObj.put("alertModeIndex", AlertMode.entries.indexOf(state.value.alertMode))
+            settingsObj.put("bgMusicUri", state.value.bgMusicUri)
+            if (state.value.selectedTtsEngine != null) {
+                settingsObj.put("selectedTtsEngine", state.value.selectedTtsEngine)
+            } else {
+                settingsObj.put("selectedTtsEngine", JSONObject.NULL)
+            }
+            backupFile.writeText(obj.toString())
+            Log.d(TAG, "ThemeManager: synced settings to backup file")
+        } catch (e: Exception) {
+            Log.w(TAG, "ThemeManager: failed to sync to backup", e)
+        }
     }
 
     fun restoreFromBackup(settings: com.driplab.app.core.recipe.BackupSettings) {
@@ -112,7 +152,9 @@ class ThemeManager @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "DripLab"
         private const val PREFS_NAME = "driplab_prefs"
+        private const val BACKUP_FILE_NAME = "driplab_backup.json"
         private const val KEY_THEME_INDEX = "theme_index"
         private const val KEY_DARK_THEME = "dark_theme"
         private const val KEY_ALERT_MODE_INDEX = "alert_mode_index"

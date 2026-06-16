@@ -172,9 +172,17 @@ class RecipeBackupManager @Inject constructor(
         return BackupSettings(
             themeIndex = themePrefs.getInt("theme_index", 0),
             isDarkTheme = themePrefs.getBoolean("dark_theme", false),
-            alertModeIndex = themePrefs.getInt("alert_mode_index", 0),
+            // v1.0.9 修复：默认值从 0 (SILENT) 改为 2 (STANDARD)，与 ThemeManager.loadState() 保持一致
+            // 之前缺省值是 0 会导致用户在全新首次导出时把 SILENT 写进 driplab_backup.json，
+            // 下次首装恢复时即便 SharedPreferences 是空的也会被回写为 SILENT
+            alertModeIndex = themePrefs.getInt("alert_mode_index", 2),
             bgMusicUri = themePrefs.getString("bg_music_uri", null),
             selectedTtsEngine = themePrefs.getString("tts_engine", null)
         )
     }
+
+    /**
+     * v1.0.9 新增：暴露 loadCurrentSettings 供单元测试使用（internal 公开给同模块的测试可见）
+     */
+    internal fun loadCurrentSettingsForTest(): BackupSettings = loadCurrentSettings()
 }

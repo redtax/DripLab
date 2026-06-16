@@ -1,6 +1,6 @@
 # 滴落间Lab — DripLab
 
-> 滴落间Lab v1.0.8 · 咖啡冲煮助手 · Redtax 制作
+> 滴落间Lab v1.0.9 · 咖啡冲煮助手 · Redtax 制作
 
 ---
 
@@ -91,6 +91,20 @@
 ---
 
 ## 版本历史
+
+### v1.0.9
+
+- 修复本地自定义设置丢失：启动时仅在 SharedPreferences 完全为空（首装）时从 driplab_backup.json 恢复，避免旧备份覆盖用户当前设置（之前每次重启提示模式都被旧备份强制重置为 SILENT 的 BUG）
+- 设置变更后即时同步到 driplab_backup.json：`selectAlertMode` / `selectTheme` / `toggleDarkTheme` / `setBgMusicUri` / `selectTtsEngine` 每次调用末尾触发 `ThemeManager.syncToBackup()`，备份文件始终反映用户最新状态
+- 修正 `RecipeBackupManager.loadCurrentSettings()` 的 `alertModeIndex` 默认值从 `0 (SILENT)` 误用改为 `2 (STANDARD)`，与 `ThemeManager` 一致
+- 新增 `loadCurrentSettingsForTest()` 暴露给单元测试（`internal` 可见性）
+- 新增 5 个 Robolectric 单元测试覆盖核心持久化场景（首装恢复 / 现有 prefs 不被旧备份覆盖 / 设置变更即时同步 / 显式导入完整恢复 / 默认值正确）
+- 保持 Room 数据库 v4→v5→v6 迁移兼容
+- 保持 SharedPreferences（主题/暗色/提示模式/背景音乐/TTS 引擎选择）零覆盖
+- 保持 v1.0.6 旧 TTS SharedPreferences 一次性迁移逻辑
+- 保持 v1.0.7 Logcat 诊断日志（`DripLab: TTS_TICK: ...`）
+- 保持 v1.0.8 BuildConfig.VERSION_NAME + 冲煮页 AlertMode 提示横幅
+- 保持显式「备份/恢复」功能完整（`Settings → 数据备份/恢复`），所有自定义设置（配方/主题/声音/TTS 引擎/提示模式/背景音乐）完整导出导入
 
 ### v1.0.8
 
